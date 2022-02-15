@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
 )
 
 var (
@@ -61,6 +62,7 @@ type metricsServer struct {
 }
 
 func (h *metricsServer) Start() error {
+	zap.L().Info("metrics server starting", zap.String("listenAddr", h.server.Addr))
 	return h.server.ListenAndServe()
 }
 
@@ -68,14 +70,14 @@ func (h *metricsServer) Stop() error {
 	return h.server.Close()
 }
 
-func NewMetricsServer() *metricsServer {
+func NewMetricsServer(config MetricsConfig) *metricsServer {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.Handle("/metrics", promhttp.Handler())
 
 	srv := &http.Server{
 		Handler:      mux,
-		Addr:         "0.0.0.0:5000",
+		Addr:         fmt.Sprintf("0.0.0.0:%s", config.Port),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}

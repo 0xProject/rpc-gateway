@@ -42,7 +42,7 @@ func main() {
 	rpcGateway := NewRpcGateway(*config)
 
 	// start healthserver
-	healthServer := NewMetricsServer()
+	healthServer := NewMetricsServer(config.Metrics)
 	g.Go(func() error {
 		return healthServer.Start()
 	})

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -23,7 +24,7 @@ func (r *RpcGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *RpcGateway) Start(ctx context.Context) error {
-	zap.L().Info("starting rpc gateway")
+	zap.L().Info("starting rpc gateway", zap.String("listenAddr", r.server.Addr))
 	go func() {
 		err := r.healthcheckManager.Start(ctx)
 		if err != nil {
@@ -60,7 +61,7 @@ func NewRpcGateway(config RpcGatewayConfig) *RpcGateway {
 
 	srv := &http.Server{
 		Handler:      r,
-		Addr:         "0.0.0.0:8000",
+		Addr:         fmt.Sprintf("0.0.0.0:%s", config.Proxy.Port),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
