@@ -88,4 +88,3 @@ Currently taint clearing is not implemented yet.
 - [ ] Expand configuration options by exposing all reverseproxy settings
 - [ ] Add defaults to YAML config.
 - [ ] Pass logger around instead of using a global one.
-# rpc-gateway
