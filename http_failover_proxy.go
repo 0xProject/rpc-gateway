@@ -61,6 +61,11 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig) error {
 
 		// the request has failed 3 times, we mark the target as tainted.
 		h.SetTargetTaint(targetName, true)
+		// TODO: move into a high level taint management with blockNumbers quorum and "rate of retries" instead.
+		go func() {
+			time.Sleep(60 * time.Second)
+			h.SetTargetTaint(targetName, false)
+		}()
 
 		// route the request to a different backend
 		requestErrorsHandled.WithLabelValues(targetName, "rerouted").Inc()
