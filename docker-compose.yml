@@ -1,0 +1,6 @@
+version: "3.9"
+services:
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy
+    restart: always
+    network_mode: host
