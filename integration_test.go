@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	toxiproxy "github.com/Shopify/toxiproxy/client"
 	"go.uber.org/zap"
@@ -127,7 +126,6 @@ func TestSetupRpcGateway(t *testing.T) {
 	bodyContent, _ := ioutil.ReadAll(res.Body)
 	fmt.Println(string(bodyContent))
 
-	time.Sleep(60 * time.Second)
 	err = gateway.Stop(context.TODO())
 	if err != nil {
 		t.Fatal(err)

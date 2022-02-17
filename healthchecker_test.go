@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
@@ -46,4 +47,27 @@ func TestBasicHealthchecker(t *testing.T) {
 	if healthchecker.IsHealthy() == true {
 		t.Fatal("Should be unhealthy if taint is set to true")
 	}
+}
+
+func TestGasLeftCall(t *testing.T) {
+	client := &http.Client{}
+	url := "https://cloudflare-eth.com"
+
+	result, err := performGasLeftCall(context.TODO(), client, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result == 0 {
+		t.Fatal("received gas limit equal to 0")
+	}
+
+	// testing the timeout
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancelFunc()
+	_, err = performGasLeftCall(ctx, client, url)
+	if err == nil {
+		t.Fatal("expected the performGasLeftCall to timeout")
+	}
+
 }

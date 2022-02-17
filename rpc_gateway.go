@@ -38,7 +38,9 @@ func (r *RpcGateway) Start(ctx context.Context) error {
 func (r *RpcGateway) Stop(ctx context.Context) error {
 	zap.L().Info("stopping rpc gateway")
 	err := r.healthcheckManager.Stop(ctx)
-	zap.L().Error("healthcheck manager failed to stop gracefully", zap.Error(err))
+	if err != nil {
+		zap.L().Error("healthcheck manager failed to stop gracefully", zap.Error(err))
+	}
 	return r.server.Close()
 }
 

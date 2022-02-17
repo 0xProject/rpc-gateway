@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"time"
 
@@ -13,7 +14,6 @@ type Healthchecker interface {
 	Start(ctx context.Context)
 	Stop(ctx context.Context) error
 	IsHealthy() bool
-	CheckHealth() bool
 	BlockNumber() uint64
 	SetTaint(bool)
 	IsTainted() bool
@@ -38,11 +38,14 @@ type RPCHealthcheckerConfig struct {
 }
 
 type RPCHealthchecker struct {
-	client *ethclient.Client
-	config RPCHealthcheckerConfig
+	client     *ethclient.Client
+	httpClient *http.Client
+	config     RPCHealthcheckerConfig
 
 	// latest known blockNumber from the RPC.
 	blockNumber uint64
+	// gasLimit received from the GasLeft.sol contract call.
+	gasLimit uint64
 
 	// RPCHealthChecker can be tainted by the abstraction on top. Reasons:
 	// Forced failover
@@ -50,6 +53,8 @@ type RPCHealthchecker struct {
 	isTainted bool
 	// is the ethereum RPC node healthy according to the RPCHealthchecker
 	isHealthy bool
+
+	//
 
 	// health check ticker
 	ticker *time.Ticker
@@ -61,10 +66,12 @@ func NewHealthchecker(config RPCHealthcheckerConfig) (Healthchecker, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &RPCHealthchecker{
-		client:    client,
-		config:    config,
-		isHealthy: true,
+		client:     client,
+		httpClient: &http.Client{},
+		config:     config,
+		isHealthy:  true,
 	}, nil
 }
 
@@ -78,7 +85,7 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 	start := time.Now()
 	blockNumber, err := h.client.BlockNumber(ctx)
 	if err != nil {
-		zap.L().Error("marking target as unhealthy due to failed blocknumber fetch", zap.String("name", h.config.Name))
+		zap.L().Error("error fetching the block number", zap.String("name", h.config.Name))
 		return 0, err
 	}
 	duration := time.Since(start)
@@ -89,7 +96,32 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 	return blockNumber, nil
 }
 
+// checkGasLimit performs an `eth_call` with a GasLeft.sol contract call. We also
+// want to perform an eth_call to make sure eth_call requests are also succeding
+// as blockNumber can be either cached or routed to a different service on the
+// RPC provider's side.
+func (h *RPCHealthchecker) checkGasLimit(ctx context.Context) (uint64, error) {
+	gasLimit, err := performGasLeftCall(ctx, h.httpClient, h.config.URL)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if err != nil {
+		h.isHealthy = false
+		return 0, err
+	}
+
+	return gasLimit, nil
+}
+
+// CheckAndSetHealth makes the following calls
+// - `eth_blockNumber` - to get the latest block reported by the node
+// - `eth_call` - to get the gas limit
+// And sets the health status based on the responses.
 func (h *RPCHealthchecker) CheckAndSetHealth() {
+	go h.checkAndSetBlockNumberHealth()
+	go h.checkAndSetGasLeftHealth()
+}
+
+func (h *RPCHealthchecker) checkAndSetBlockNumberHealth() {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, h.config.Timeout)
 	defer cancel()
@@ -103,25 +135,28 @@ func (h *RPCHealthchecker) CheckAndSetHealth() {
 	}
 	h.blockNumber = blockNumber
 	h.isHealthy = true
-
-	// TODO
-	// We also make an eth_call to make sure eth_calls are also succeding as
-	// blockNumber can be either cached or routed to a different service on
-	// the RPC provider's side.
 }
 
-func (h *RPCHealthchecker) CheckHealth() bool {
+func (h *RPCHealthchecker) checkAndSetGasLeftHealth() {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, h.config.Timeout)
 	defer cancel()
 
-	_, err := h.checkBlockNumber(ctx)
-	return err == nil
+	gasLimit, err := h.checkGasLimit(ctx)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if err != nil {
+		h.isHealthy = false
+		return
+	}
+	h.gasLimit = gasLimit
+	h.isHealthy = true
 }
 
 func (h *RPCHealthchecker) Start(ctx context.Context) {
-	h.CheckHealth()
+	h.CheckAndSetHealth()
 	ticker := time.NewTicker(h.config.Interval)
+	defer ticker.Stop()
 	h.ticker = ticker
 	for {
 		select {
@@ -134,7 +169,7 @@ func (h *RPCHealthchecker) Start(ctx context.Context) {
 }
 
 func (h *RPCHealthchecker) Stop(ctx context.Context) error {
-	h.ticker.Stop()
+	// TODO: Additional cleanups?
 	return nil
 }
 
