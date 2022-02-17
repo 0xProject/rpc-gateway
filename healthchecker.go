@@ -85,7 +85,7 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 	start := time.Now()
 	blockNumber, err := h.client.BlockNumber(ctx)
 	if err != nil {
-		zap.L().Error("error fetching the block number", zap.String("name", h.config.Name))
+		zap.L().Error("error fetching the block number", zap.Error(err), zap.String("name", h.config.Name))
 		return 0, err
 	}
 	duration := time.Since(start)
@@ -104,11 +104,9 @@ func (h *RPCHealthchecker) checkGasLimit(ctx context.Context) (uint64, error) {
 	gasLimit, err := performGasLeftCall(ctx, h.httpClient, h.config.URL)
 	rpcProviderGasLimit.WithLabelValues(h.config.Name).Set(float64(gasLimit))
 	zap.L().Debug("fetched gas limit", zap.Uint64("gasLimit", gasLimit), zap.String("rpcProvider", h.config.Name))
-	h.mu.Lock()
-	defer h.mu.Unlock()
 	if err != nil {
-		h.isHealthy = false
-		return 0, err
+		zap.L().Error("failed fetching the gas limit", zap.Error(err), zap.String("rpcProvider", h.config.Name))
+		return gasLimit, err
 	}
 
 	return gasLimit, nil
