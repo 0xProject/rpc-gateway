@@ -80,7 +80,7 @@ Currently taint clearing is not implemented yet.
 
 ## TODOs
 
-- [ ] Add geth_override eth_call to healthchecks ( this one [here](./contracts/GasLeft.sol "here") )
+- [x] Add geth_override eth_call to healthchecks ( this one [here](./contracts/GasLeft.sol "here") )
 - [ ] Encapsulate into `middleware` `healthchecker` packages.
 - [ ] Add Blockchain aware caching.
 - [ ] Handle taints better?
