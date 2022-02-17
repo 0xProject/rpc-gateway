@@ -32,6 +32,11 @@ var (
 		Help: "Block number of a given provider",
 	}, []string{"provider"})
 
+	rpcProviderGasLimit = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "zeroex_rpc_gateway_provider_gasLimit_number",
+		Help: "Gas limit of a given provider",
+	}, []string{"provider"})
+
 	healthcheckResponseTimeHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "zeroex_rpc_gateway_healthcheck_response_duration_seconds",
 		Help:    "Histogram of response time for Gateway Healthchecker in seconds",

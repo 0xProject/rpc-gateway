@@ -91,7 +91,7 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 	duration := time.Since(start)
 	healthcheckResponseTimeHistogram.WithLabelValues(h.config.Name, "eth_blockNumber").Observe(duration.Seconds())
 	rpcProviderBlockNumber.WithLabelValues(h.config.Name).Set(float64(blockNumber))
-	zap.L().Debug("fetched block", zap.Uint64("blockNumber", blockNumber))
+	zap.L().Debug("fetched block", zap.Uint64("blockNumber", blockNumber), zap.String("rpcProvider", h.config.Name))
 
 	return blockNumber, nil
 }
@@ -102,6 +102,8 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 // RPC provider's side.
 func (h *RPCHealthchecker) checkGasLimit(ctx context.Context) (uint64, error) {
 	gasLimit, err := performGasLeftCall(ctx, h.httpClient, h.config.URL)
+	rpcProviderGasLimit.WithLabelValues(h.config.Name).Set(float64(gasLimit))
+	zap.L().Debug("fetched gas limit", zap.Uint64("gasLimit", gasLimit), zap.String("rpcProvider", h.config.Name))
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if err != nil {

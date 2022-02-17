@@ -26,7 +26,7 @@ proxy:
   upstreamTimeout: "200ms" # when is a request considered timed out
 
 healthChecks:
-  interval: "5s" # how often to do healthchecks
+  interval: "1s" # how often to do healthchecks
   timeout: "1s" # when should the timeout occur and considered unhealthy
   failureThreshold: 2 # how many failed checks until marked as unhealthy
   successThreshold: 1 # how many successes to be marked as healthy again
@@ -108,6 +108,7 @@ func TestSetupRpcGateway(t *testing.T) {
 	}
 
 	gateway := NewRpcGateway(*config)
+	go gateway.Start(context.TODO())
 	gs := httptest.NewServer(gateway)
 	gsClient := gs.Client()
 	// We limit the connection pool to have a single sourceIP on localhost
