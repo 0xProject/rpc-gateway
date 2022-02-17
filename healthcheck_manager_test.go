@@ -4,9 +4,15 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func TestHealthcheckManager(t *testing.T) {
+	// initial setup
+	logger, _ := zap.NewDevelopment()
+	zap.ReplaceGlobals(logger)
+
 	manager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: []TargetConfig{
 			TargetConfig{
@@ -28,8 +34,8 @@ func TestHealthcheckManager(t *testing.T) {
 		},
 
 		Config: HealthCheckConfig{
-			Interval:         500 * time.Millisecond,
-			Timeout:          200 * time.Millisecond,
+			Interval:         200 * time.Millisecond,
+			Timeout:          2000 * time.Millisecond,
 			FailureThreshold: 1,
 			SuccessThreshold: 1,
 		},
