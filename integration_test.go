@@ -53,7 +53,7 @@ type TestUrl struct {
 	UrlTwo string
 }
 
-func TestSetupRpcGateway(t *testing.T) {
+func TestRpcGatewayFailover(t *testing.T) {
 	// initial setup
 	logger, _ := zap.NewDevelopment()
 	zap.ReplaceGlobals(logger)
@@ -123,8 +123,12 @@ func TestSetupRpcGateway(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gateway failed to handle the first failover with err: %s", err)
 	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("gateway failed to handle the first failover, expect 200, got %v", res.StatusCode)
+	}
 
 	bodyContent, _ := ioutil.ReadAll(res.Body)
+	fmt.Println("Response from RPC gateway:")
 	fmt.Println(string(bodyContent))
 
 	err = gateway.Stop(context.TODO())
