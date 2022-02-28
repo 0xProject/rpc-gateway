@@ -26,9 +26,30 @@ The gateway assesses the health of the underlying RPC provider by:
 - continuously (configurable how often) checking the blockNumber, if the request fails or timeouts it marks it as unhealthy (configurable thresholds)
 - every request that fails will be rerouted to the next available healthy target after a configurable amount of retries
   - if it will be rerouted the current target will be "tainted"
-  
-  
+
+## Developing
+
+Start dependent services
+```zsh
+docker-compose up
+```
+
+Make sure the test pass
+```zsh
+go test
+```
+
+To run the app locally
+```zsh
+go run . --config ./example_config.yml
+```
+
 ## Running & Configuration
+
+Build the binary:
+```
+go build
+```
 
 The statically linked `rpc-gateway` binary has one flag `--config` that defaults to `./config.yml` simply run it by:
 ```
@@ -44,10 +65,16 @@ metrics:
 
 proxy:
   port: "3000" # port for RPC gateway
-  allowedNumberOfRetries: 2 # how many retries should an individual failed RPC request take
-  allowedNumberOfAttempts: 2 # how many attemps should an individual failed RPC request take
+  upstreamTimeout: "1s" # when is a request considered timed out
+  
+  # The number of retries within the same RPC target for a single request
+  allowedNumberOfRetriesPerTarget: 2
   retryDelay: "10ms" # delay between retries
-  upstreamTimeout: "5s" # when is a proxied request considered timed out
+
+  # The total number of failovers (switching to the next healthy RPC target)
+  allowedNumberOfFailovers: 1
+
+  # Note: the maximum number of retries for a request = (1 + allowedNumberOfFailovers) * allowedNumberOfRetriesPerTarget
 
 healthChecks:
   interval: "5s" # how often to do healthchecks
