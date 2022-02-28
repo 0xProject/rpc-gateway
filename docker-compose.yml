@@ -3,4 +3,5 @@ services:
   toxiproxy:
     image: ghcr.io/shopify/toxiproxy
     restart: always
-    network_mode: host
+    ports:
+      - "8474:8474"

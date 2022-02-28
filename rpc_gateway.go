@@ -29,7 +29,7 @@ func (r *RpcGateway) Start(ctx context.Context) error {
 		err := r.healthcheckManager.Start(ctx)
 		if err != nil {
 			// TODO: Handle gracefully
-			zap.L().Fatal("failed to start healtcheck manager", zap.Error(err))
+			zap.L().Fatal("failed to start healthcheck manager", zap.Error(err))
 		}
 	}()
 	return r.server.ListenAndServe()

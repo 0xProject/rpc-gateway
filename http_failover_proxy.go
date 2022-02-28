@@ -49,12 +49,12 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig) error {
 
 	proxy.ErrorHandler = func(writer http.ResponseWriter, request *http.Request, e error) {
 		retries := GetRetryFromContext(request)
-		zap.L().Warn("rerouting request", zap.Error(e))
-		if retries < h.gatewayConfig.Proxy.AllowedNumberOfRetries {
+		zap.L().Warn("handling a failed request", zap.Error(e))
+		if retries < h.gatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget {
 			requestErrorsHandled.WithLabelValues(targetName, "retry").Inc()
 			// we add a configurable delay before resending request
 			time.Sleep(h.gatewayConfig.Proxy.RetryDelay)
-			ctx := context.WithValue(request.Context(), Retry, retries+1)
+			ctx := context.WithValue(request.Context(), Retries, retries+1)
 			proxy.ServeHTTP(writer, request.WithContext(ctx))
 			return
 		}
@@ -72,8 +72,8 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig) error {
 
 		// route the request to a different backend
 		requestErrorsHandled.WithLabelValues(targetName, "rerouted").Inc()
-		attempts := GetAttemptsFromContext(request)
-		ctx := context.WithValue(request.Context(), Attempts, attempts+1)
+		failovers := GetFailoversFromContext(request)
+		ctx := context.WithValue(request.Context(), Failovers, failovers+1)
 		// adding the targetname in case it errors out and needs to be
 		// used in metrics in ServeHTTP.
 		ctx = context.WithValue(ctx, TargetName, targetName)
@@ -104,10 +104,10 @@ func (h *HttpFailoverProxy) GetNextTargetName() string {
 }
 
 func (h *HttpFailoverProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	attempts := GetAttemptsFromContext(r)
-	if attempts > h.gatewayConfig.Proxy.AllowedNumberOfAttempts {
+	failovers := GetFailoversFromContext(r)
+	if failovers > h.gatewayConfig.Proxy.AllowedNumberOfFailovers {
 		targetName := GetTargetNameFromContext(r)
-		zap.L().Error("request reached maximum attemps", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
+		zap.L().Warn("request reached maximum failovers", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
 		requestErrorsHandled.WithLabelValues(targetName, "failure").Inc()
 		http.Error(w, "Service not available", http.StatusServiceUnavailable)
 		return

@@ -85,7 +85,7 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 	start := time.Now()
 	blockNumber, err := h.client.BlockNumber(ctx)
 	if err != nil {
-		zap.L().Error("error fetching the block number", zap.Error(err), zap.String("name", h.config.Name))
+		zap.L().Warn("error fetching the block number", zap.Error(err), zap.String("name", h.config.Name))
 		return 0, err
 	}
 	duration := time.Since(start)

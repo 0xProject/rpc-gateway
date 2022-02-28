@@ -10,11 +10,11 @@ type MetricsConfig struct {
 }
 
 type ProxyConfig struct {
-	Port                    string        `yaml:"port"`
-	AllowedNumberOfRetries  uint          `yaml:"allowedNumberOfRetries"`
-	AllowedNumberOfAttempts uint          `yaml:"allowedNumberOfAttempts"`
-	RetryDelay              time.Duration `yaml:"retryDelay"`
-	UpstreamTimeout         time.Duration `yaml:"upstreamTimeout"`
+	Port                            string        `yaml:"port"`
+	AllowedNumberOfRetriesPerTarget uint          `yaml:"allowedNumberOfRetriesPerTarget"`
+	AllowedNumberOfFailovers        uint          `yaml:"allowedNumberOfFailovers"`
+	RetryDelay                      time.Duration `yaml:"retryDelay"`
+	UpstreamTimeout                 time.Duration `yaml:"upstreamTimeout"`
 }
 
 type HealthCheckConfig struct {

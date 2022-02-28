@@ -5,31 +5,31 @@ import (
 )
 
 const (
-	Attempts int = iota
-	Retry
+	Failovers int = iota
+	Retries
 	TargetName
 )
 
-// GetAttemptsFromContext returns the attempts for request
-func GetAttemptsFromContext(r *http.Request) uint {
-	if attempts, ok := r.Context().Value(Attempts).(uint); ok {
+// GetFailoversFromContext returns the attempts for request
+func GetFailoversFromContext(r *http.Request) uint {
+	if attempts, ok := r.Context().Value(Failovers).(uint); ok {
 		return attempts
 	}
-	return 1
+	return 0
 }
 
-// GetAttemptsFromContext returns the attempts for request
+// GetRetryFromContext returns the attempts for request
 func GetRetryFromContext(r *http.Request) uint {
-	if retry, ok := r.Context().Value(Retry).(uint); ok {
-		return retry
+	if retries, ok := r.Context().Value(Retries).(uint); ok {
+		return retries
 	}
 	return 0
 }
 
 // GetTargetNameFromContext returns the attempts for request
 func GetTargetNameFromContext(r *http.Request) string {
-	if retry, ok := r.Context().Value(TargetName).(string); ok {
-		return retry
+	if targetName, ok := r.Context().Value(TargetName).(string); ok {
+		return targetName
 	}
 	return ""
 }
