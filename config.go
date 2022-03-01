@@ -12,7 +12,7 @@ type MetricsConfig struct {
 type ProxyConfig struct {
 	Port                            string        `yaml:"port"`
 	AllowedNumberOfRetriesPerTarget uint          `yaml:"allowedNumberOfRetriesPerTarget"`
-	AllowedNumberOfFailovers        uint          `yaml:"allowedNumberOfFailovers"`
+	AllowedNumberOfReroutes         uint          `yaml:"allowedNumberOfReroutes"`
 	RetryDelay                      time.Duration `yaml:"retryDelay"`
 	UpstreamTimeout                 time.Duration `yaml:"upstreamTimeout"`
 }

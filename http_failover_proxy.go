@@ -72,8 +72,8 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig) error {
 
 		// route the request to a different backend
 		requestErrorsHandled.WithLabelValues(targetName, "rerouted").Inc()
-		failovers := GetFailoversFromContext(request)
-		ctx := context.WithValue(request.Context(), Failovers, failovers+1)
+		reroutes := GetReroutesFromContext(request)
+		ctx := context.WithValue(request.Context(), Reroutes, reroutes+1)
 		// adding the targetname in case it errors out and needs to be
 		// used in metrics in ServeHTTP.
 		ctx = context.WithValue(ctx, TargetName, targetName)
@@ -104,8 +104,8 @@ func (h *HttpFailoverProxy) GetNextTargetName() string {
 }
 
 func (h *HttpFailoverProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	failovers := GetFailoversFromContext(r)
-	if failovers > h.gatewayConfig.Proxy.AllowedNumberOfFailovers {
+	failovers := GetReroutesFromContext(r)
+	if failovers > h.gatewayConfig.Proxy.AllowedNumberOfReroutes {
 		targetName := GetTargetNameFromContext(r)
 		zap.L().Warn("request reached maximum failovers", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
 		requestErrorsHandled.WithLabelValues(targetName, "failure").Inc()

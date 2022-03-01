@@ -5,15 +5,15 @@ import (
 )
 
 const (
-	Failovers int = iota
+	Reroutes int = iota
 	Retries
 	TargetName
 )
 
-// GetFailoversFromContext returns the attempts for request
-func GetFailoversFromContext(r *http.Request) uint {
-	if attempts, ok := r.Context().Value(Failovers).(uint); ok {
-		return attempts
+// GetReroutesFromContext returns the attempts for request
+func GetReroutesFromContext(r *http.Request) uint {
+	if reroutes, ok := r.Context().Value(Reroutes).(uint); ok {
+		return reroutes
 	}
 	return 0
 }

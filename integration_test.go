@@ -23,7 +23,7 @@ proxy:
   upstreamTimeout: "200m" # when is a request considered timed out
   allowedNumberOfRetriesPerTarget: 2 # The number of retries within the same RPC target for a single request
   retryDelay: "10ms" # delay between retries
-  allowedNumberOfFailovers: 1 # The total number of failovers (switching to the next healthy RPC target)
+  allowedNumberOfReroutes: 1 # The total number of failovers (switching to the next healthy RPC target)
 
 healthChecks:
   interval: "1s" # how often to do healthchecks
