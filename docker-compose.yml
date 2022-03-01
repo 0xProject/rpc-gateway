@@ -1,0 +1,7 @@
+version: "3.9"
+services:
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy
+    restart: always
+    ports:
+      - "8474:8474"
