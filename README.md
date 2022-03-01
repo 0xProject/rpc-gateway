@@ -105,6 +105,14 @@ Taints are a way for the `HealthcheckManager` to mark a node as unhealthy even t
 
 Currently taint clearing is not implemented yet.
 
+## Build Docker image
+We should build multi-arch image so the image can be run in both `arm64` and `amd64` arch.
+
+```zsh
+TAG=0.0.1
+docker buildx build --platform linux/amd64,linux/arm64 -t 883408475785.dkr.ecr.us-east-1.amazonaws.com/rpc-gateway:${TAG} --push .
+```
+
 ## TODOs
 
 - [x] Add geth_override eth_call to healthchecks ( this one [here](./contracts/GasLeft.sol "here") )
