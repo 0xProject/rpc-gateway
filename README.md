@@ -71,7 +71,7 @@ proxy:
   allowedNumberOfRetriesPerTarget: 2
   retryDelay: "10ms" # delay between retries
 
-  # The total number of reroutes for a single request (switching to the next healthy RPC target)
+  # The total number of re-routes (to the next healthy RPC target)
   allowedNumberOfReroutes: 1
 
   # Note: the maximum number of retries for a request = (1 + allowedNumberOfReroutes) * allowedNumberOfRetriesPerTarget
