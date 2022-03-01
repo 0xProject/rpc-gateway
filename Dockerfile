@@ -17,6 +17,5 @@ RUN mkdir -p /app
     
 COPY --from=builder /src/rpc-gateway /app/rpc-gateway
 
-USER app
 VOLUME ["/app"]
 CMD ["/app/rpc-gateway"]
