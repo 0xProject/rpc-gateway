@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,6 +48,7 @@ func hexToUint(hexString string) (uint64, error) {
 func performGasLeftCall(ctx context.Context, client *http.Client, url string) (uint64, error) {
 	requestBody := bytes.NewBuffer(gasLeftCallRaw)
 	request, err := http.NewRequestWithContext(ctx, "POST", url, requestBody)
+	request.Header.Add("Content-Type", "application/json")
 	if err != nil {
 		return 0, err
 	}
@@ -54,6 +57,11 @@ func performGasLeftCall(ctx context.Context, client *http.Client, url string) (u
 		return 0, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyContent, _ := ioutil.ReadAll(resp.Body)
+		return 0, fmt.Errorf("got non-200 response, status: %d, body: %s", resp.StatusCode, bodyContent)
+	}
 
 	result := &JsonRPCResponse{}
 	err = json.NewDecoder(resp.Body).Decode(result)
