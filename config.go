@@ -18,10 +18,12 @@ type ProxyConfig struct {
 }
 
 type HealthCheckConfig struct {
-	Interval         time.Duration `yaml:"interval"`
-	Timeout          time.Duration `yaml:"timeout"`
-	FailureThreshold uint          `yaml:"failureThreshold"`
-	SuccessThreshold uint          `yaml:"successThreshold"`
+	Interval                      time.Duration `yaml:"interval"`
+	Timeout                       time.Duration `yaml:"timeout"`
+	FailureThreshold              uint          `yaml:"failureThreshold"`
+	SuccessThreshold              uint          `yaml:"successThreshold"`
+	RollingWindowSize             int           `yaml:"rollingWindowSize"`
+	RollingWindowFailureThreshold float64       `yaml:"rollingWindowFailureThreshold"`
 }
 
 type TargetConnectionHTTP struct {

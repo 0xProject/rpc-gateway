@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -26,6 +27,8 @@ type rollingWindowWrapper struct {
 type HealthcheckManager struct {
 	healthcheckers []Healthchecker
 	rollingWindows []*rollingWindowWrapper
+
+	requestFailureThreshold float64
 }
 
 func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager {
@@ -47,12 +50,41 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 		}
 
 		healthCheckers = append(healthCheckers, healthchecker)
-		rollingWindows = append(rollingWindows, NewRollingWindowWrapper(target.Name, 1000))
+		rollingWindows = append(rollingWindows, NewRollingWindowWrapper(target.Name, config.Config.RollingWindowSize))
 
 	}
 	return &HealthcheckManager{
-		healthcheckers: healthCheckers,
-		rollingWindows: rollingWindows,
+		healthcheckers:          healthCheckers,
+		rollingWindows:          rollingWindows,
+		requestFailureThreshold: config.Config.RollingWindowFailureThreshold,
+	}
+}
+
+func (h *HealthcheckManager) runLoop(ctx context.Context) error {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			h.checkForFailingRequests()
+		}
+	}
+
+}
+
+func (h *HealthcheckManager) checkForFailingRequests() {
+	for _, wrapper := range h.rollingWindows {
+		rollingWindow := wrapper.rollingWindow
+		if rollingWindow.Avg() < h.requestFailureThreshold {
+			h.SetTargetTaint(wrapper.Name, true)
+			// TODO: Better taint removal
+			go func() {
+				time.Sleep(60 * time.Second)
+				h.SetTargetTaint(wrapper.Name, false)
+			}()
+		}
 	}
 }
 
@@ -61,7 +93,7 @@ func (h *HealthcheckManager) Start(ctx context.Context) error {
 		go healthChecker.Start(ctx)
 	}
 
-	return nil
+	return h.runLoop(ctx)
 }
 
 func (h *HealthcheckManager) Stop(ctx context.Context) error {
