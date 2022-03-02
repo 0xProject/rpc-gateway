@@ -52,6 +52,11 @@ var (
 		Name: "zeroex_rpc_gateway_request_errors_handled_total",
 		Help: "The total number of request errors handled by gateway",
 	}, []string{"host", "type"})
+
+	responseStatus = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "zeroex_rpc_gateway_response_status_total",
+		Help: "Total number of responses with a statuscode label",
+	}, []string{"host", "status_code"})
 )
 
 func init() {

@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httputil"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -47,9 +50,27 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig) error {
 		return err
 	}
 
+	// NOTE: any error returned from ModifyResponse will be handled by
+	// ErrorHandler
+	proxy.ModifyResponse = func(response *http.Response) error {
+		responseStatus.WithLabelValues(targetName, strconv.Itoa(response.StatusCode)).Inc()
+		if response.StatusCode == 429 {
+			zap.L().Warn("rate limited", zap.String("target", targetName))
+			return errors.New("rate limited")
+		} else if response.StatusCode >= 300 {
+			zap.L().Warn("received a non succesful status code", zap.Int("statusCode", response.StatusCode))
+			return fmt.Errorf("status code: %d", response.StatusCode)
+		} else {
+			h.healthcheckManager.ObserveSuccess(targetName)
+		}
+
+		return nil
+	}
+
 	proxy.ErrorHandler = func(writer http.ResponseWriter, request *http.Request, e error) {
 		retries := GetRetryFromContext(request)
 		zap.L().Warn("handling a failed request", zap.Error(e))
+		h.healthcheckManager.ObserveFailure(targetName)
 		if retries < h.gatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget {
 			requestErrorsHandled.WithLabelValues(targetName, "retry").Inc()
 			// we add a configurable delay before resending request
@@ -58,17 +79,6 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig) error {
 			proxy.ServeHTTP(writer, request.WithContext(ctx))
 			return
 		}
-
-		// the request has failed 3 times, we mark the target as tainted.
-		h.SetTargetTaint(targetName, true)
-		// TODO: move into a high level taint management with blockNumbers quorum and "rate of retries" instead.
-		// We remove the tain as the request rerouting could be a
-		// "blip", we give a minute for the RPC provider to recover.
-		// Health is still checked independently.
-		go func() {
-			time.Sleep(60 * time.Second)
-			h.SetTargetTaint(targetName, false)
-		}()
 
 		// route the request to a different backend
 		requestErrorsHandled.WithLabelValues(targetName, "rerouted").Inc()

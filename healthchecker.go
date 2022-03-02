@@ -54,8 +54,6 @@ type RPCHealthchecker struct {
 	// is the ethereum RPC node healthy according to the RPCHealthchecker
 	isHealthy bool
 
-	//
-
 	// health check ticker
 	ticker *time.Ticker
 	mu     sync.RWMutex

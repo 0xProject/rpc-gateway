@@ -11,12 +11,27 @@ type HealthcheckManagerConfig struct {
 	Config  HealthCheckConfig
 }
 
+func NewRollingWindowWrapper(name string, windowSize int) *rollingWindowWrapper {
+	return &rollingWindowWrapper{
+		Name:          name,
+		rollingWindow: NewRollingWindow(windowSize),
+	}
+}
+
+type rollingWindowWrapper struct {
+	rollingWindow *RollingWindow
+	Name          string
+}
+
 type HealthcheckManager struct {
 	healthcheckers []Healthchecker
+	rollingWindows []*rollingWindowWrapper
 }
 
 func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager {
 	healthCheckers := []Healthchecker{}
+	rollingWindows := []*rollingWindowWrapper{}
+
 	for _, target := range config.Targets {
 		healthchecker, err := NewHealthchecker(RPCHealthcheckerConfig{
 			URL:              target.Connection.HTTP.URL,
@@ -32,10 +47,12 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 		}
 
 		healthCheckers = append(healthCheckers, healthchecker)
+		rollingWindows = append(rollingWindows, NewRollingWindowWrapper(target.Name, 1000))
 
 	}
 	return &HealthcheckManager{
 		healthcheckers: healthCheckers,
+		rollingWindows: rollingWindows,
 	}
 }
 
@@ -57,6 +74,17 @@ func (h *HealthcheckManager) Stop(ctx context.Context) error {
 
 	return nil
 
+}
+
+func (h *HealthcheckManager) GetTargetIndexByName(name string) int {
+	for idx, healthChecker := range h.healthcheckers {
+		if healthChecker.Name() == name {
+			return idx
+		}
+	}
+
+	zap.L().Error("tried to access a non-existing Healthchecker", zap.String("name", name))
+	return 0
 }
 
 func (h *HealthcheckManager) GetTargetByName(name string) Healthchecker {
@@ -96,4 +124,24 @@ func (h *HealthcheckManager) GetNextHealthyTargetIndex() int {
 	// no healthy targets, we down:(
 	zap.L().Error("no more healthy targets")
 	return 0
+}
+
+func (h *HealthcheckManager) GetRollingWindowByName(name string) *RollingWindow {
+	for _, wrapper := range h.rollingWindows {
+		if wrapper.Name == name {
+			return wrapper.rollingWindow
+		}
+	}
+
+	panic("unknown rolling window")
+}
+
+func (h *HealthcheckManager) ObserveSuccess(name string) {
+	rollingWindow := h.GetRollingWindowByName(name)
+	rollingWindow.Observe(1)
+}
+
+func (h *HealthcheckManager) ObserveFailure(name string) {
+	rollingWindow := h.GetRollingWindowByName(name)
+	rollingWindow.Observe(0)
 }
