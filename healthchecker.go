@@ -105,7 +105,7 @@ func (h *RPCHealthchecker) checkGasLimit(ctx context.Context) (uint64, error) {
 	rpcProviderGasLimit.WithLabelValues(h.config.Name).Set(float64(gasLimit))
 	zap.L().Debug("fetched gas limit", zap.Uint64("gasLimit", gasLimit), zap.String("rpcProvider", h.config.Name))
 	if err != nil {
-		zap.L().Error("failed fetching the gas limit", zap.Error(err), zap.String("rpcProvider", h.config.Name))
+		zap.L().Warn("failed fetching the gas limit", zap.Error(err), zap.String("rpcProvider", h.config.Name))
 		return gasLimit, err
 	}
 
