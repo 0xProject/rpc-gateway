@@ -7,6 +7,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func NewPathPreservingProxy(turl string, proxyConfig ProxyConfig) (*httputil.ReverseProxy, error) {
@@ -17,12 +19,15 @@ func NewPathPreservingProxy(turl string, proxyConfig ProxyConfig) (*httputil.Rev
 
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 	proxy.Director = func(req *http.Request) {
+		req.Host = targetURL.Host
 		req.URL.Scheme = targetURL.Scheme
 		req.URL.Host = targetURL.Host
+
 		// this bit right here makes sure that all the rpc URLs with
 		// /<apikey> work.
-		req.URL.Path = fmt.Sprintf("%s%s", targetURL.Path, req.URL.Path)
-		req.Host = targetURL.Host
+		req.URL.Path = targetURL.Path
+
+		zap.L().Debug(fmt.Sprintf("forwarding request to: %s", req.URL))
 	}
 
 	proxy.Transport = &http.Transport{

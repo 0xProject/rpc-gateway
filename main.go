@@ -16,7 +16,14 @@ func main() {
 	topCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	logger, _ := zap.NewProduction()
+	debugLogEnabled := os.Getenv("DEBUG") == "true"
+	logLevel := zap.InfoLevel
+	if debugLogEnabled {
+		logLevel = zap.DebugLevel
+	}
+	zapConfig := zap.NewProductionConfig()
+	zapConfig.Level = zap.NewAtomicLevelAt(logLevel)
+	logger, _ := zapConfig.Build()
 	// We replace the global logger with this initialized here for simplyfication.
 	// Do see: https://github.com/uber-go/zap/blob/master/FAQ.md#why-include-package-global-loggers
 	// ref: https://pkg.go.dev/go.uber.org/zap?utm_source=godoc#ReplaceGlobals
