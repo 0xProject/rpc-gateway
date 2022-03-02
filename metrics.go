@@ -54,7 +54,7 @@ var (
 	}, []string{"host", "type"})
 
 	responseStatus = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "zeroex_rpc_gateway_response_status_total",
+		Name: "zeroex_rpc_gateway_target_response_status_total",
 		Help: "Total number of responses with a statuscode label",
 	}, []string{"host", "status_code"})
 )
