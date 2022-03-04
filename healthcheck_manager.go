@@ -77,8 +77,13 @@ func (h *HealthcheckManager) runLoop(ctx context.Context) error {
 func (h *HealthcheckManager) checkForFailingRequests() {
 	for _, wrapper := range h.rollingWindows {
 		rollingWindow := wrapper.rollingWindow
-		if rollingWindow.HasEnoughObservations() && rollingWindow.Avg() < h.requestFailureThreshold {
-			h.TaintTarget(wrapper.Name)
+		if rollingWindow.HasEnoughObservations() {
+			responseSuccessRate := rollingWindow.Avg()
+			if responseSuccessRate < h.requestFailureThreshold {
+				zap.L().Warn("RPC target has been tainted", zap.String("name", wrapper.Name), zap.Float64("responseSuccessRate", responseSuccessRate))
+				h.TaintTarget(wrapper.Name)
+				rollingWindow.Reset()
+			}
 		}
 	}
 }
