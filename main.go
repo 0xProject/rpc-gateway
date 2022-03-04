@@ -49,9 +49,9 @@ func main() {
 	rpcGateway := NewRpcGateway(*config)
 
 	// start healthz and metrics server
-	healthServer := NewMetricsServer(config.Metrics)
+	metricsServer := NewMetricsServer(config.Metrics)
 	g.Go(func() error {
-		return healthServer.Start()
+		return metricsServer.Start()
 	})
 
 	g.Go(func() error {
@@ -60,7 +60,7 @@ func main() {
 
 	g.Go(func() error {
 		<-gCtx.Done()
-		err := healthServer.Stop()
+		err := metricsServer.Stop()
 		if err != nil {
 			logger.Error("error when stopping healthserver", zap.Error(err))
 		}

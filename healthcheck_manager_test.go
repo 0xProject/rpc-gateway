@@ -15,7 +15,7 @@ func TestHealthcheckManager(t *testing.T) {
 
 	manager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: []TargetConfig{
-			TargetConfig{
+			{
 				Name: "Cloudflare",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
@@ -23,7 +23,7 @@ func TestHealthcheckManager(t *testing.T) {
 					},
 				},
 			},
-			TargetConfig{
+			{
 				Name: "CloudflareTwo",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{

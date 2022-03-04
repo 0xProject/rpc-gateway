@@ -69,9 +69,9 @@ func (h *HealthcheckManager) runLoop(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			h.checkForFailingRequests()
+			h.reportStatusMetrics()
 		}
 	}
-
 }
 
 func (h *HealthcheckManager) checkForFailingRequests() {
@@ -80,6 +80,21 @@ func (h *HealthcheckManager) checkForFailingRequests() {
 		if rollingWindow.HasEnoughObservations() && rollingWindow.Avg() < h.requestFailureThreshold {
 			h.TaintTarget(wrapper.Name)
 		}
+	}
+}
+
+func (h *HealthcheckManager) reportStatusMetrics() {
+	for _, healthchecker := range h.healthcheckers {
+		healthy := 0
+		tainted := 0
+		if healthchecker.IsHealthy() {
+			healthy = 1
+		}
+		if healthchecker.IsTainted() {
+			tainted = 1
+		}
+		rpcProviderStatus.WithLabelValues(healthchecker.Name(), "healthy").Set(float64(healthy))
+		rpcProviderStatus.WithLabelValues(healthchecker.Name(), "tainted").Set(float64(tainted))
 	}
 }
 
@@ -143,13 +158,26 @@ func (h *HealthcheckManager) IsTargetHealthy(name string) bool {
 func (h *HealthcheckManager) GetNextHealthyTargetIndex() int {
 	for idx, target := range h.healthcheckers {
 		if target.IsHealthy() {
-			gatewayFailover.Set(float64(idx))
 			return idx
 		}
 	}
 
 	// no healthy targets, we down:(
 	zap.L().Error("no more healthy targets")
+	return 0
+}
+
+func (h *HealthcheckManager) GetNextHealthyTargetIndexExcluding(excludedIdx []uint) int {
+	for idx, target := range h.healthcheckers {
+		for _, excludedIndex := range excludedIdx {
+			if idx != int(excludedIndex) && target.IsHealthy() {
+				return idx
+			}
+		}
+	}
+
+	// no healthy targets, we down:(
+	zap.L().Warn("no more healthy targets")
 	return 0
 }
 

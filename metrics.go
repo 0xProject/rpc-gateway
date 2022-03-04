@@ -22,10 +22,10 @@ var (
 		Buckets: requestBuckets,
 	}, []string{"host", "method"})
 
-	gatewayFailover = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "zeroex_rpc_gateway_http_failover_index",
-		Help: "Index of the currently selected HTTP target",
-	})
+	rpcProviderStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "zeroex_rpc_gateway_provider_status",
+		Help: "Current status of a given provider by type. Type can be either healthy or tainted.",
+	}, []string{"provider", "type"})
 
 	rpcProviderBlockNumber = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "zeroex_rpc_gateway_provider_block_number",
@@ -61,10 +61,10 @@ var (
 
 func init() {
 	prometheus.MustRegister(responseTimeHistogram)
-	prometheus.MustRegister(gatewayFailover)
+	prometheus.MustRegister(rpcProviderStatus)
 	prometheus.MustRegister(rpcProviderBlockNumber)
+	prometheus.MustRegister(rpcProviderGasLimit)
 	prometheus.MustRegister(healthcheckResponseTimeHistogram)
-	gatewayFailover.Set(float64(0))
 }
 
 type metricsServer struct {
