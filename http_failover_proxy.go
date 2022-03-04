@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
@@ -69,6 +71,13 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 
 	proxy.ErrorHandler = func(writer http.ResponseWriter, request *http.Request, e error) {
 		retries := GetRetryFromContext(request)
+
+		// Workaround to reserve request body in ReverseProxy.ErrorHandler
+		// see more here: https://github.com/golang/go/issues/33726
+		if buf, ok := request.Context().Value("bodybuf").(*bytes.Buffer); ok {
+			request.Body = ioutil.NopCloser(buf)
+		}
+
 		zap.L().Warn("handling a failed request", zap.Error(e))
 		h.healthcheckManager.ObserveFailure(targetName)
 		if retries < h.gatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget {
@@ -93,7 +102,7 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 		// adding the targetname in case it errors out and needs to be
 		// used in metrics in ServeHTTP.
 		ctx = context.WithValue(ctx, TargetName, targetName)
-		
+
 		// reset the number of retries for the next target
 		ctx = context.WithValue(ctx, Retries, 0)
 		h.ServeHTTP(writer, request.WithContext(ctx))

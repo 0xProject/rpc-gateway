@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -26,6 +30,17 @@ func NewPathPreservingProxy(turl string, proxyConfig ProxyConfig) (*httputil.Rev
 		// this bit right here makes sure that all the rpc URLs with
 		// /<apikey> work.
 		req.URL.Path = targetURL.Path
+
+		// Workaround to reserve request body in ReverseProxy.ErrorHandler
+		// see more here: https://github.com/golang/go/issues/33726\
+		if req.Body != nil && req.ContentLength != 0 {
+			var buf bytes.Buffer
+			tee := io.TeeReader(req.Body, &buf)
+			req.Body = ioutil.NopCloser(tee)
+			ctx := context.WithValue(req.Context(), "bodybuf", &buf)
+			r2 := req.WithContext(ctx)
+			*req = *r2
+		}
 
 		zap.L().Debug(fmt.Sprintf("forwarding request to: %s", req.URL))
 	}
