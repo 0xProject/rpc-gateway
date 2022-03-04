@@ -20,7 +20,7 @@ var (
 		Name:    "zeroex_rpc_gateway_request_duration_seconds",
 		Help:    "Histogram of response time for Gateway in seconds",
 		Buckets: requestBuckets,
-	}, []string{"host", "method"})
+	}, []string{"provider", "method"})
 
 	rpcProviderStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "zeroex_rpc_gateway_provider_status",
@@ -40,7 +40,7 @@ var (
 	rpcProviderInfo = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "zeroex_rpc_gateway_provider_info",
 		Help: "Gas limit of a given provider",
-	}, []string{"index", "name"})
+	}, []string{"index", "provider"})
 
 	healthcheckResponseTimeHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "zeroex_rpc_gateway_healthcheck_response_duration_seconds",
