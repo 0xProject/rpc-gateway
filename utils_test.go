@@ -39,6 +39,26 @@ func TestRollingWindowReset(t *testing.T) {
 	}
 }
 
+
+func TestRollingWindowHasEnoughObservations(t *testing.T) {
+	r := NewRollingWindow(5)
+
+	r.Observe(0)
+	r.Observe(1)
+	r.Observe(1)
+	r.Observe(1)
+
+	if r.HasEnoughObservations() {
+		t.Fatal("expected HasEnoughObservations to return false")
+	}
+
+	r.Observe(1)
+
+	if !r.HasEnoughObservations() {
+		t.Fatal("expected HasEnoughObservations to return true")
+	}
+}
+
 func BenchmarkRollingAverageParallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -48,8 +68,8 @@ func BenchmarkRollingAverageParallel(b *testing.B) {
 				r.Observe(1)
 			}
 
+			r.HasEnoughObservations()
 			r.Avg()
-
 		}
 	})
 }
@@ -62,7 +82,7 @@ func BenchmarkRollingAverageSerial(b *testing.B) {
 			r.Observe(1)
 		}
 
+		r.HasEnoughObservations()
 		r.Avg()
-
 	}
 }

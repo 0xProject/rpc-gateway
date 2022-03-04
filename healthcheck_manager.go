@@ -77,13 +77,8 @@ func (h *HealthcheckManager) runLoop(ctx context.Context) error {
 func (h *HealthcheckManager) checkForFailingRequests() {
 	for _, wrapper := range h.rollingWindows {
 		rollingWindow := wrapper.rollingWindow
-		if rollingWindow.Avg() < h.requestFailureThreshold {
-			h.SetTargetTaint(wrapper.Name, true)
-			// TODO: Better taint removal
-			go func() {
-				time.Sleep(60 * time.Second)
-				h.SetTargetTaint(wrapper.Name, false)
-			}()
+		if rollingWindow.HasEnoughObservations() && rollingWindow.Avg() < h.requestFailureThreshold {
+			h.TaintTarget(wrapper.Name)
 		}
 	}
 }
@@ -130,9 +125,9 @@ func (h *HealthcheckManager) GetTargetByName(name string) Healthchecker {
 	return nil
 }
 
-func (h *HealthcheckManager) SetTargetTaint(name string, isTainted bool) {
+func (h *HealthcheckManager) TaintTarget(name string) {
 	if healthChecker := h.GetTargetByName(name); healthChecker != nil {
-		healthChecker.SetTaint(isTainted)
+		healthChecker.Taint()
 		return
 	}
 }

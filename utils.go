@@ -70,3 +70,13 @@ func (r *RollingWindow) Reset() {
 
 	r.window = make([]int, 0, r.windowSize)
 }
+
+// TODO: can be combined with Avg() to reduce locks
+func (r * RollingWindow) HasEnoughObservations() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if len(r.window) == 0 {
+		return false
+	}
+	return float64(len(r.window) / r.windowSize) > 0.9 // TODO: parameterize this
+}

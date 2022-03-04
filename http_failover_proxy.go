@@ -100,10 +100,6 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig) error {
 	return nil
 }
 
-func (h *HttpFailoverProxy) SetTargetTaint(name string, isTainted bool) {
-	h.healthcheckManager.SetTargetTaint(name, isTainted)
-}
-
 func (h *HttpFailoverProxy) GetNextTarget() *HttpTarget {
 	idx := h.healthcheckManager.GetNextHealthyTargetIndex()
 	return h.targets[idx]

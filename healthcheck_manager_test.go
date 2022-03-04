@@ -50,7 +50,7 @@ func TestHealthcheckManager(t *testing.T) {
 	}
 	time.Sleep(1 * time.Second)
 
-	manager.SetTargetTaint("Cloudflare", true)
+	manager.TaintTarget("Cloudflare")
 	nextIdx = manager.GetNextHealthyTargetIndex()
 	if nextIdx != 1 {
 		t.Fatal("did not handle the taint well")

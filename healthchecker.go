@@ -15,7 +15,8 @@ type Healthchecker interface {
 	Stop(ctx context.Context) error
 	IsHealthy() bool
 	BlockNumber() uint64
-	SetTaint(bool)
+	Taint()
+	RemoveTaint()
 	IsTainted() bool
 	Name() string
 }
@@ -37,6 +38,15 @@ type RPCHealthcheckerConfig struct {
 	SuccessThreshold uint `yaml:"healthcheckInterval"`
 }
 
+const (
+	// Intially we wait for 30s then remove the taint
+	initialTaintWaitTime = time.Second * 30
+	// We do exponential backoff taint removal but the wait time won't be more than 10 minutes
+	maxTaintWaitTime = time.Minute * 10
+	// Reset taint wait time (to `initialTaintWaitTime`) if it's been 5 minutes since the last taint removal
+	resetTaintWaitTimeAfterDuration = time.Minute * 5 // 
+)
+
 type RPCHealthchecker struct {
 	client     *ethclient.Client
 	httpClient *http.Client
@@ -51,6 +61,11 @@ type RPCHealthchecker struct {
 	// Forced failover
 	// Blocknumber is behind the other
 	isTainted bool
+	// The time when the last taint removal happened
+	lastTaintRemoval time.Time
+	// The current wait time for the taint removal
+	currentTaintWaitTime time.Duration
+
 	// is the ethereum RPC node healthy according to the RPCHealthchecker
 	isHealthy bool
 
@@ -70,6 +85,7 @@ func NewHealthchecker(config RPCHealthcheckerConfig) (Healthchecker, error) {
 		httpClient: &http.Client{},
 		config:     config,
 		isHealthy:  true,
+		currentTaintWaitTime: initialTaintWaitTime,
 	}, nil
 }
 
@@ -190,8 +206,29 @@ func (h *RPCHealthchecker) IsTainted() bool {
 	return h.isTainted
 }
 
-func (h *RPCHealthchecker) SetTaint(tainted bool) {
+func (h *RPCHealthchecker) Taint() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.isTainted = tainted
+	if h.isTainted {
+		return
+	}
+	h.isTainted = true
+	// Increase the wait time (exponentially) for taint removal if the RPC was tainted
+	// within resetTaintWaitTimeAfterDuration since the last taint removal
+	if time.Now().Sub(h.lastTaintRemoval) <= resetTaintWaitTimeAfterDuration {
+		h.currentTaintWaitTime = h.currentTaintWaitTime * 2
+	} else {
+		h.currentTaintWaitTime = initialTaintWaitTime
+	}
+	go func() {
+		time.Sleep(h.currentTaintWaitTime)
+		h.RemoveTaint()
+	}()
+}
+
+func (h *RPCHealthchecker) RemoveTaint() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.isTainted = false
+	h.lastTaintRemoval = time.Now()
 }

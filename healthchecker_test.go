@@ -43,9 +43,14 @@ func TestBasicHealthchecker(t *testing.T) {
 		t.Fatal("Healthchecker by default should be healthy after running for a bit")
 	}
 
-	healthchecker.SetTaint(true)
+	healthchecker.Taint()
 	if healthchecker.IsHealthy() == true {
 		t.Fatal("Should be unhealthy if taint is set to true")
+	}
+
+	healthchecker.RemoveTaint()
+	if healthchecker.IsHealthy() == false {
+		t.Fatal("Should be healthy after the taint is removed")
 	}
 }
 
