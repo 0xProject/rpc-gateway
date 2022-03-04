@@ -37,11 +37,16 @@ var (
 		Help: "Gas limit of a given provider",
 	}, []string{"provider"})
 
+	rpcProviderInfo = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "zeroex_rpc_gateway_provider_info",
+		Help: "Gas limit of a given provider",
+	}, []string{"index", "name"})
+
 	healthcheckResponseTimeHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "zeroex_rpc_gateway_healthcheck_response_duration_seconds",
 		Help:    "Histogram of response time for Gateway Healthchecker in seconds",
 		Buckets: requestBuckets,
-	}, []string{"host", "method"})
+	}, []string{"provider", "method"})
 
 	requestsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "zeroex_rpc_gateway_requests_total",
@@ -51,12 +56,12 @@ var (
 	requestErrorsHandled = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "zeroex_rpc_gateway_request_errors_handled_total",
 		Help: "The total number of request errors handled by gateway",
-	}, []string{"host", "type"})
+	}, []string{"provider", "type"})
 
 	responseStatus = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "zeroex_rpc_gateway_target_response_status_total",
 		Help: "Total number of responses with a statuscode label",
-	}, []string{"host", "status_code"})
+	}, []string{"provider", "status_code"})
 )
 
 func init() {
@@ -64,6 +69,7 @@ func init() {
 	prometheus.MustRegister(rpcProviderStatus)
 	prometheus.MustRegister(rpcProviderBlockNumber)
 	prometheus.MustRegister(rpcProviderGasLimit)
+	prometheus.MustRegister(rpcProviderInfo)
 	prometheus.MustRegister(healthcheckResponseTimeHistogram)
 }
 

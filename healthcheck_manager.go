@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -104,7 +105,8 @@ func (h *HealthcheckManager) reportStatusMetrics() {
 }
 
 func (h *HealthcheckManager) Start(ctx context.Context) error {
-	for _, healthChecker := range h.healthcheckers {
+	for index, healthChecker := range h.healthcheckers {
+		rpcProviderInfo.WithLabelValues(strconv.Itoa(index), healthChecker.Name()).Set(1)
 		go healthChecker.Start(ctx)
 	}
 
