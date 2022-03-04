@@ -217,9 +217,13 @@ func (h *RPCHealthchecker) Taint() {
 	// within resetTaintWaitTimeAfterDuration since the last taint removal
 	if time.Now().Sub(h.lastTaintRemoval) <= resetTaintWaitTimeAfterDuration {
 		h.currentTaintWaitTime = h.currentTaintWaitTime * 2
+		if h.currentTaintWaitTime > maxTaintWaitTime {
+			h.currentTaintWaitTime = maxTaintWaitTime
+		}
 	} else {
 		h.currentTaintWaitTime = initialTaintWaitTime
 	}
+	zap.L().Info("RPC Tainted", zap.String("name", h.config.Name), zap.Int64("taintWaitTime", int64(h.currentTaintWaitTime)))
 	go func() {
 		time.Sleep(h.currentTaintWaitTime)
 		h.RemoveTaint()
@@ -231,4 +235,5 @@ func (h *RPCHealthchecker) RemoveTaint() {
 	defer h.mu.Unlock()
 	h.isTainted = false
 	h.lastTaintRemoval = time.Now()
+	zap.L().Info("RPC Taint Removed", zap.String("name", h.config.Name))
 }

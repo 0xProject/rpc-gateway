@@ -80,7 +80,7 @@ func (h *HealthcheckManager) checkForFailingRequests() {
 		if rollingWindow.HasEnoughObservations() {
 			responseSuccessRate := rollingWindow.Avg()
 			if responseSuccessRate < h.requestFailureThreshold {
-				zap.L().Warn("RPC target has been tainted", zap.String("name", wrapper.Name), zap.Float64("responseSuccessRate", responseSuccessRate))
+				zap.L().Warn("RPC Success Rate falls below threshold", zap.String("name", wrapper.Name), zap.Float64("responseSuccessRate", responseSuccessRate))
 				h.TaintTarget(wrapper.Name)
 				rollingWindow.Reset()
 			}
