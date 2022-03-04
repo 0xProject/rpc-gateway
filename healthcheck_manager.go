@@ -169,10 +169,16 @@ func (h *HealthcheckManager) GetNextHealthyTargetIndex() int {
 
 func (h *HealthcheckManager) GetNextHealthyTargetIndexExcluding(excludedIdx []uint) int {
 	for idx, target := range h.healthcheckers {
+		isExcluded := false
 		for _, excludedIndex := range excludedIdx {
-			if idx != int(excludedIndex) && target.IsHealthy() {
-				return idx
+			if idx == int(excludedIndex) {
+				isExcluded = true
+				break
 			}
+		}
+
+		if !isExcluded && target.IsHealthy() {
+			return idx
 		}
 	}
 
