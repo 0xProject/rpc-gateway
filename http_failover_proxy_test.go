@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,10 +34,10 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 	}))
 	defer fakeRpc1Server.Close()
-	fakeRpc2Server := httptest.NewServer(&responder{
-		value: []byte(`{"name": "fakeRpc2"}`),
-		onRequest: func(r *http.Request) {},
-	})
+	fakeRpc2Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+		body, _ := ioutil.ReadAll(r.Body)
+		w.Write(body)
+	}))
 	defer fakeRpc2Server.Close()
 	rpcGatewayConfig := createTestRpcGatewayConfig()
 	rpcGatewayConfig.Targets = []TargetConfig{
@@ -66,7 +68,8 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	// the failoverProxy should automatically reroute the request to the second RPC Server by itself
 	httpFailoverProxy := NewHttpFailoverProxy(rpcGatewayConfig, healthcheckManager)
 
-	req, err := http.NewRequest("GET", "/", nil)
+	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
+	req, err := http.NewRequest("POST", "/", requestBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +83,9 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 		t.Errorf("server returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	want := `{"name": "fakeRpc2"}`
+	// This test makes sure that the request's body is forwarded to
+	// the next RPC Provider
+	want := `{"this_is": "body"}`
 	if rr.Body.String() != want {
 		t.Errorf("server returned unexpected body: got %v want %v", rr.Body.String(), want)
 	}
