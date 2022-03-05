@@ -48,10 +48,10 @@ var (
 		Buckets: requestBuckets,
 	}, []string{"provider", "method"})
 
-	requestsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+	requestsProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "zeroex_rpc_gateway_requests_total",
 		Help: "The total number of processed requests by gateway",
-	})
+	}, []string{"status_code"})
 
 	requestErrorsHandled = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "zeroex_rpc_gateway_request_errors_handled_total",

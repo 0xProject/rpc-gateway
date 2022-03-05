@@ -54,10 +54,9 @@ func NewRpcGateway(config RpcGatewayConfig) *RpcGateway {
 		Config:  config.HealthChecks,
 	})
 	httpFailoverProxy := NewHttpFailoverProxy(config, healthcheckManager)
-	requestLogger := &RequestLogger{}
 
 	r := mux.NewRouter()
-	r.Use(requestLogger.Middleware)
+	r.Use(LoggingMiddleware())
 	r.PathPrefix("/").Handler(httpFailoverProxy)
 	r.PathPrefix("").Handler(httpFailoverProxy)
 
