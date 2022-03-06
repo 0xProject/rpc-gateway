@@ -47,7 +47,7 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 	targetURL := targetConfig.Connection.HTTP.URL
 	targetName := targetConfig.Name
 
-	proxy, err := NewPathPreservingProxy(targetURL, h.gatewayConfig.Proxy)
+	proxy, err := NewPathPreservingProxy(targetName, targetURL, h.gatewayConfig.Proxy)
 	if err != nil {
 		return err
 	}

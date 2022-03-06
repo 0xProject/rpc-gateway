@@ -12,10 +12,12 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/mwitkow/go-conntrack"
+
 	"go.uber.org/zap"
 )
 
-func NewPathPreservingProxy(turl string, proxyConfig ProxyConfig) (*httputil.ReverseProxy, error) {
+func NewPathPreservingProxy(tname, turl string, proxyConfig ProxyConfig) (*httputil.ReverseProxy, error) {
 	targetURL, err := url.Parse(turl)
 	if err != nil {
 		return nil, err
@@ -45,20 +47,27 @@ func NewPathPreservingProxy(turl string, proxyConfig ProxyConfig) (*httputil.Rev
 		zap.L().Debug(fmt.Sprintf("forwarding request to: %s", req.URL))
 	}
 
-	proxy.Transport = &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
+	conntrackDialer := conntrack.NewDialContextFunc(
+		conntrack.DialWithName(tname),
+		conntrack.DialWithTracing(),
+		conntrack.DialWithDialer(&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
-			DualStack: true,
-		}).DialContext,
+		}),
+	)
+
+	proxy.Transport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: conntrackDialer,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		ResponseHeaderTimeout: proxyConfig.UpstreamTimeout,
 	}
+
+	conntrack.PreRegisterDialerMetrics(tname)
 
 	return proxy, nil
 }
