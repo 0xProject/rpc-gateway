@@ -93,7 +93,7 @@ func NewMetricsServer(config MetricsConfig) *metricsServer {
 
 	srv := &http.Server{
 		Handler:      mux,
-		Addr:         fmt.Sprintf("0.0.0.0:%s", config.Port),
+		Addr:         fmt.Sprintf(":%s", config.Port),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
