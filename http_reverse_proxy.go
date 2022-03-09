@@ -44,7 +44,7 @@ func NewPathPreservingProxy(targetConfig TargetConfig, proxyConfig ProxyConfig) 
 			//
 			// Edge case: target 1 doesn't support request compression but target 2 does
 			// 	In this case, since the body is already decompressed to serve the target 1,
-			//  in a reroute event, target 2 will just receive the decompressed body in stead
+			//  in a reroute event, target 2 will just receive the decompressed body instead
 			//  of the original compressed one.
 			//  We could fix this by either re-compress the body or keep a copy of the original (gzipped) body.
 			if req.Header.Get("Content-Encoding") == "gzip" && !targetConfig.Connection.HTTP.Compression {
