@@ -6,13 +6,13 @@ proxy:
   upstreamTimeout: "1s" # when is a request considered timed out
   
   # The number of retries within the same RPC target for a single request
-  allowedNumberOfRetriesPerTarget: 2
+  allowedNumberOfRetriesPerTarget: 1
   retryDelay: "10ms" # delay between retries
 
   # The total number of re-routes (to the next healthy RPC target)
   allowedNumberOfReroutes: 1
 
-  # Note: the maximum number of retries for a request = (1 + allowedNumberOfFailovers) * allowedNumberOfRetriesPerTarget
+  # Note: maximum number of target calls made per single request = (1 + allowedNumberOfReroutes) * (1 + allowedNumberOfRetriesPerTarget)
 
 healthChecks:
   interval: "5s" # how often to do healthchecks
@@ -25,7 +25,8 @@ healthChecks:
   rollingWindowFailureThreshold: 0.90 # If the request success rate falls below 90% mark target as tainted
 
 targets:
-  - name: "Cloudflare"
+  - name: "QuickNode"
     connection:
       http: # ws is supported by default, it will be a sticky connection.
         url: "https://cloudflare-eth.com"
+        # compression: true # Specify if the target supports request compression

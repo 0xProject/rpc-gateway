@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
@@ -44,10 +44,9 @@ func (h *HttpFailoverProxy) addTarget(target *HttpTarget) {
 }
 
 func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex uint) error {
-	targetURL := targetConfig.Connection.HTTP.URL
 	targetName := targetConfig.Name
 
-	proxy, err := NewPathPreservingProxy(targetName, targetURL, h.gatewayConfig.Proxy)
+	proxy, err := NewPathPreservingProxy(targetConfig, h.gatewayConfig.Proxy)
 	if err != nil {
 		return err
 	}
@@ -75,7 +74,7 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 		// Workaround to reserve request body in ReverseProxy.ErrorHandler
 		// see more here: https://github.com/golang/go/issues/33726
 		if buf, ok := request.Context().Value("bodybuf").(*bytes.Buffer); ok {
-			request.Body = ioutil.NopCloser(buf)
+			request.Body = io.NopCloser(buf)
 		}
 
 		zap.L().Warn("handling a failed request", zap.Error(e))

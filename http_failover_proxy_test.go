@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -91,7 +92,6 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	}
 }
 
-
 func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
 	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Service not available", http.StatusServiceUnavailable)
@@ -147,5 +147,137 @@ func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
 	// the failover proxy doesn't try to reroute the request to the second RPC (healthy)
 	if status := rr.Code; status != http.StatusServiceUnavailable {
 		t.Errorf("server returned wrong status code: got %v want %v", status, http.StatusServiceUnavailable)
+	}
+}
+
+func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
+	var receivedBody, receivedHeaderContentEncoding string
+	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
+		body, _ := ioutil.ReadAll(r.Body)
+		receivedBody = string(body)
+		w.Write([]byte("OK"))
+	}))
+	defer fakeRpc1Server.Close()
+	rpcGatewayConfig := createTestRpcGatewayConfig()
+	rpcGatewayConfig.Targets = []TargetConfig{
+		{
+			Name: "Server1",
+			Connection: TargetConfigConnection{
+				HTTP: TargetConnectionHTTP{
+					URL: fakeRpc1Server.URL,
+				},
+			},
+		},
+	}
+
+	// Tell HttpFailoverProxy to not reroute the request
+	rpcGatewayConfig.Proxy.AllowedNumberOfReroutes = 0
+
+	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
+		Targets: rpcGatewayConfig.Targets,
+		Config:  rpcGatewayConfig.HealthChecks,
+	})
+	// Setup HttpFailoverProxy but not starting the HealthCheckManager
+	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
+	httpFailoverProxy := NewHttpFailoverProxy(rpcGatewayConfig, healthcheckManager)
+
+	var buf bytes.Buffer
+	g := gzip.NewWriter(&buf)
+	_, err := g.Write([]byte(`{"body": "content"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = g.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", "/", &buf)
+	req.Header.Add("Content-Encoding", "gzip")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
+	handler.ServeHTTP(rr, req)
+
+	want := `{"body": "content"}`
+	if receivedBody != want {
+		t.Errorf("the proxy didn't decompress the request before forwarding the body to the target: want: %s, got: %s", want, receivedBody)
+	}
+	want = ""
+	if receivedHeaderContentEncoding != want {
+		t.Errorf("the proxy didn't remove the `Content-Encoding: gzip` after decompressing the body, want empty, got: %s", receivedHeaderContentEncoding)
+	}
+}
+
+func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
+	var receivedHeaderContentEncoding string
+	var receivedBody []byte
+	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
+		receivedBody, _ = ioutil.ReadAll(r.Body)
+		w.Write([]byte("OK"))
+	}))
+	defer fakeRpc1Server.Close()
+	rpcGatewayConfig := createTestRpcGatewayConfig()
+	rpcGatewayConfig.Targets = []TargetConfig{
+		{
+			Name: "Server1",
+			Connection: TargetConfigConnection{
+				HTTP: TargetConnectionHTTP{
+					URL: fakeRpc1Server.URL,
+					Compression: true,
+				},
+			},
+		},
+	}
+
+	// Tell HttpFailoverProxy to not reroute the request
+	rpcGatewayConfig.Proxy.AllowedNumberOfReroutes = 0
+
+	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
+		Targets: rpcGatewayConfig.Targets,
+		Config:  rpcGatewayConfig.HealthChecks,
+	})
+	// Setup HttpFailoverProxy but not starting the HealthCheckManager
+	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
+	httpFailoverProxy := NewHttpFailoverProxy(rpcGatewayConfig, healthcheckManager)
+
+	var buf bytes.Buffer
+	g := gzip.NewWriter(&buf)
+	_, err := g.Write([]byte(`{"body": "content"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = g.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", "/", &buf)
+	req.Header.Add("Content-Encoding", "gzip")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
+	handler.ServeHTTP(rr, req)
+
+	want := "gzip"
+	if receivedHeaderContentEncoding != want {
+		t.Errorf("the proxy didn't keep the header of `Content-Encoding: gzip`, want: %s, got: %s", want, receivedHeaderContentEncoding)
+	}
+	
+	var wantBody bytes.Buffer
+	g = gzip.NewWriter(&wantBody)
+	g.Write([]byte(`{"body": "content"}`))
+	g.Close()
+	
+	if bytes.Compare(receivedBody, wantBody.Bytes()) != 0 {
+		t.Errorf("the proxy didn't keep the body as is when forwarding gzipped body to the target.")
 	}
 }
