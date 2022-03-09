@@ -20,12 +20,12 @@ var (
 		Name:    "zeroex_rpc_gateway_request_duration_seconds",
 		Help:    "Histogram of response time for Gateway in seconds",
 		Buckets: requestBuckets,
-	}, []string{"host", "method"})
+	}, []string{"provider", "method"})
 
-	gatewayFailover = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "zeroex_rpc_gateway_http_failover_index",
-		Help: "Index of the currently selected HTTP target",
-	})
+	rpcProviderStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "zeroex_rpc_gateway_provider_status",
+		Help: "Current status of a given provider by type. Type can be either healthy or tainted.",
+	}, []string{"provider", "type"})
 
 	rpcProviderBlockNumber = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "zeroex_rpc_gateway_provider_block_number",
@@ -37,29 +37,40 @@ var (
 		Help: "Gas limit of a given provider",
 	}, []string{"provider"})
 
+	rpcProviderInfo = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "zeroex_rpc_gateway_provider_info",
+		Help: "Gas limit of a given provider",
+	}, []string{"index", "provider"})
+
 	healthcheckResponseTimeHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "zeroex_rpc_gateway_healthcheck_response_duration_seconds",
 		Help:    "Histogram of response time for Gateway Healthchecker in seconds",
 		Buckets: requestBuckets,
-	}, []string{"host", "method"})
+	}, []string{"provider", "method"})
 
-	requestsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+	requestsProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "zeroex_rpc_gateway_requests_total",
 		Help: "The total number of processed requests by gateway",
-	})
+	}, []string{"status_code"})
 
 	requestErrorsHandled = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "zeroex_rpc_gateway_request_errors_handled_total",
 		Help: "The total number of request errors handled by gateway",
-	}, []string{"host", "type"})
+	}, []string{"provider", "type"})
+
+	responseStatus = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "zeroex_rpc_gateway_target_response_status_total",
+		Help: "Total number of responses with a statuscode label",
+	}, []string{"provider", "status_code"})
 )
 
 func init() {
 	prometheus.MustRegister(responseTimeHistogram)
-	prometheus.MustRegister(gatewayFailover)
+	prometheus.MustRegister(rpcProviderStatus)
 	prometheus.MustRegister(rpcProviderBlockNumber)
+	prometheus.MustRegister(rpcProviderGasLimit)
+	prometheus.MustRegister(rpcProviderInfo)
 	prometheus.MustRegister(healthcheckResponseTimeHistogram)
-	gatewayFailover.Set(float64(0))
 }
 
 type metricsServer struct {
@@ -82,7 +93,7 @@ func NewMetricsServer(config MetricsConfig) *metricsServer {
 
 	srv := &http.Server{
 		Handler:      mux,
-		Addr:         fmt.Sprintf("0.0.0.0:%s", config.Port),
+		Addr:         fmt.Sprintf(":%s", config.Port),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}

@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/mwitkow/go-conntrack"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
@@ -24,15 +26,25 @@ func (r *RpcGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *RpcGateway) Start(ctx context.Context) error {
-	zap.L().Info("starting rpc gateway", zap.String("listenAddr", r.server.Addr))
+	zap.L().Info("starting rpc gateway")
+
 	go func() {
+		zap.L().Info("starting healthcheck manager")
 		err := r.healthcheckManager.Start(ctx)
 		if err != nil {
 			// TODO: Handle gracefully
 			zap.L().Fatal("failed to start healthcheck manager", zap.Error(err))
 		}
 	}()
-	return r.server.ListenAndServe()
+
+	listenAddress := fmt.Sprintf(":%s", r.httpFailoverProxy.gatewayConfig.Proxy.Port)
+	zap.L().Info("starting http failover proxy", zap.String("listenAddr", listenAddress))
+	listener, err := net.Listen("tcp", fmt.Sprintf(listenAddress))
+	if err != nil {
+		zap.L().Error("Failed to listen", zap.Error(err))
+	}
+	httpListener := conntrack.NewListener(listener, conntrack.TrackWithTracing())
+	return r.server.Serve(httpListener)
 }
 
 func (r *RpcGateway) Stop(ctx context.Context) error {
@@ -54,16 +66,14 @@ func NewRpcGateway(config RpcGatewayConfig) *RpcGateway {
 		Config:  config.HealthChecks,
 	})
 	httpFailoverProxy := NewHttpFailoverProxy(config, healthcheckManager)
-	requestLogger := &RequestLogger{}
 
 	r := mux.NewRouter()
-	r.Use(requestLogger.Middleware)
+	r.Use(LoggingMiddleware())
 	r.PathPrefix("/").Handler(httpFailoverProxy)
 	r.PathPrefix("").Handler(httpFailoverProxy)
 
 	srv := &http.Server{
 		Handler:      r,
-		Addr:         fmt.Sprintf("0.0.0.0:%s", config.Proxy.Port),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}

@@ -8,9 +8,10 @@ const (
 	Reroutes int = iota
 	Retries
 	TargetName
+	VisitedTargets
 )
 
-// GetReroutesFromContext returns the attempts for request
+// GetReroutesFromContext returns the reroutes for request
 func GetReroutesFromContext(r *http.Request) uint {
 	if reroutes, ok := r.Context().Value(Reroutes).(uint); ok {
 		return reroutes
@@ -18,7 +19,7 @@ func GetReroutesFromContext(r *http.Request) uint {
 	return 0
 }
 
-// GetRetryFromContext returns the attempts for request
+// GetRetryFromContext returns the retries for request
 func GetRetryFromContext(r *http.Request) uint {
 	if retries, ok := r.Context().Value(Retries).(uint); ok {
 		return retries
@@ -26,7 +27,15 @@ func GetRetryFromContext(r *http.Request) uint {
 	return 0
 }
 
-// GetTargetNameFromContext returns the attempts for request
+// GetVisitedTargetsFromContext returns the visited targets for request
+func GetVisitedTargetsFromContext(r *http.Request) []uint {
+	if visitedTargets, ok := r.Context().Value(VisitedTargets).([]uint); ok {
+		return visitedTargets
+	}
+	return []uint{}
+}
+
+// GetTargetNameFromContext returns the target name for request
 func GetTargetNameFromContext(r *http.Request) string {
 	if targetName, ok := r.Context().Value(TargetName).(string); ok {
 		return targetName
