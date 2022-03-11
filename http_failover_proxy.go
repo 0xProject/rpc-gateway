@@ -69,6 +69,13 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 	}
 
 	proxy.ErrorHandler = func(writer http.ResponseWriter, request *http.Request, e error) {
+		// The client canceled the request (e.g. 0x API has a 5s timeout for RPC request)
+		// we stop here as it doesn't make sense to retry/reroute anymore.
+		// Also, we don't want to observe a client-canceled request as a failure
+		if errors.Is(e, context.Canceled) {
+			return
+		}
+
 		retries := GetRetryFromContext(request)
 
 		// Workaround to reserve request body in ReverseProxy.ErrorHandler
