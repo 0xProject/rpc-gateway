@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -37,10 +38,10 @@ func NewPathPreservingProxy(targetConfig TargetConfig, proxyConfig ProxyConfig) 
 		// see more here: https://github.com/golang/go/issues/33726
 		if req.Body != nil && req.ContentLength != 0 {
 			var buf bytes.Buffer
-			var tee io.Reader
-			
+			var bodyReader io.Reader
+
 			// If the body is gzip-ed but the target doesn't support request compression
-			// we wrap the body reader with the gzip reader to decompress before sending
+			// we decompress the body before sending
 			//
 			// Edge case: target 1 doesn't support request compression but target 2 does
 			// 	In this case, since the body is already decompressed to serve the target 1,
@@ -49,24 +50,34 @@ func NewPathPreservingProxy(targetConfig TargetConfig, proxyConfig ProxyConfig) 
 			//  We could fix this by either re-compress the body or keep a copy of the original (gzipped) body.
 			if req.Header.Get("Content-Encoding") == "gzip" && !targetConfig.Connection.HTTP.Compression {
 				zap.L().Debug("go to gzip")
-				tee, err = gzip.NewReader(io.TeeReader(req.Body, &buf))
+
+				gzr, err := gzip.NewReader(req.Body)
+
 				if err != nil {
 					zap.L().Error("error while initiate gzip reader", zap.Error(err))
 					// Failed to read gzip content, treat it as uncompressed data
-					tee = io.TeeReader(req.Body, &buf)
+					bodyReader = io.TeeReader(req.Body, &buf)
 				} else {
+					// Decompress the body
+					data, err := ioutil.ReadAll(gzr)
+
+					if err != nil {
+						panic(err)
+					}
+
+					// Replace body content with uncompressed data
 					// Remove the "Content-Encoding: gzip" because the body is decompressed already
-					// We also set the content length to 0 so it can be re-calculated after the decompression (body has changed)
+					// and correct the ContentLength header
+					bodyReader = bytes.NewReader(data)
 					req.Header.Del("Content-Encoding")
-					req.Header.Del("Content-Length")
-					req.ContentLength = 0
+					req.ContentLength = int64(len(data))
 				}
 			} else {
 				zap.L().Debug("not go to gzip")
-				tee = io.TeeReader(req.Body, &buf)
+				bodyReader = io.TeeReader(req.Body, &buf)
 			}
-			req.Body = io.NopCloser(tee)
-			
+			req.Body = io.NopCloser(bodyReader)
+
 			ctx := context.WithValue(req.Context(), "bodybuf", &buf)
 			r2 := req.WithContext(ctx)
 			*req = *r2
@@ -85,8 +96,8 @@ func NewPathPreservingProxy(targetConfig TargetConfig, proxyConfig ProxyConfig) 
 	)
 
 	proxy.Transport = &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: conntrackDialer,
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           conntrackDialer,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       30 * time.Second,
