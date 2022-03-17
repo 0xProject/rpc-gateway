@@ -59,7 +59,8 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 			zap.L().Warn("rate limited", zap.String("target", targetName))
 			return errors.New("rate limited")
 		} else if response.StatusCode >= 300 {
-			zap.L().Warn("received a non succesful status code", zap.Int("statusCode", response.StatusCode))
+			body, _ := io.ReadAll(response.Body)
+			zap.L().Warn("received a non succesful status code", zap.Int("statusCode", response.StatusCode), zap.String("body", string(body)))
 			return fmt.Errorf("status code: %d", response.StatusCode)
 		} else {
 			h.healthcheckManager.ObserveSuccess(targetName)

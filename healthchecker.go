@@ -44,7 +44,7 @@ const (
 	// We do exponential backoff taint removal but the wait time won't be more than 10 minutes
 	maxTaintWaitTime = time.Minute * 10
 	// Reset taint wait time (to `initialTaintWaitTime`) if it's been 5 minutes since the last taint removal
-	resetTaintWaitTimeAfterDuration = time.Minute * 5 // 
+	resetTaintWaitTimeAfterDuration = time.Minute * 5 //
 )
 
 type RPCHealthchecker struct {
@@ -81,10 +81,10 @@ func NewHealthchecker(config RPCHealthcheckerConfig) (Healthchecker, error) {
 	}
 
 	return &RPCHealthchecker{
-		client:     client,
-		httpClient: &http.Client{},
-		config:     config,
-		isHealthy:  true,
+		client:               client,
+		httpClient:           &http.Client{},
+		config:               config,
+		isHealthy:            true,
 		currentTaintWaitTime: initialTaintWaitTime,
 	}, nil
 }

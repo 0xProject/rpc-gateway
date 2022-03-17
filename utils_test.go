@@ -39,7 +39,6 @@ func TestRollingWindowReset(t *testing.T) {
 	}
 }
 
-
 func TestRollingWindowHasEnoughObservations(t *testing.T) {
 	r := NewRollingWindow(5)
 

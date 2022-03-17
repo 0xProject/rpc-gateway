@@ -7,14 +7,15 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func createTestRpcGatewayConfig() RpcGatewayConfig {
 	return RpcGatewayConfig{
-		Metrics:      MetricsConfig{},
-		Proxy:        ProxyConfig{
+		Metrics: MetricsConfig{},
+		Proxy: ProxyConfig{
 			AllowedNumberOfRetriesPerTarget: 3,
 			AllowedNumberOfReroutes:         1,
 			RetryDelay:                      0,
@@ -28,16 +29,16 @@ func createTestRpcGatewayConfig() RpcGatewayConfig {
 			RollingWindowSize:             100,
 			RollingWindowFailureThreshold: 0.9,
 		},
-		Targets:      []TargetConfig{},
+		Targets: []TargetConfig{},
 	}
 }
 
 func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 	}))
 	defer fakeRpc1Server.Close()
-	fakeRpc2Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	fakeRpc2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
 		w.Write(body)
 	}))
@@ -95,12 +96,12 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 }
 
 func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Service not available", http.StatusServiceUnavailable)
 	}))
 	defer fakeRpc1Server.Close()
 	fakeRpc2Server := httptest.NewServer(&responder{
-		value: []byte(""),
+		value:     []byte(""),
 		onRequest: func(r *http.Request) {},
 	})
 	defer fakeRpc2Server.Close()
@@ -153,9 +154,10 @@ func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
 }
 
 func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
-	var receivedBody, receivedHeaderContentEncoding string
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	var receivedBody, receivedHeaderContentEncoding, receivedHeaderContentLength string
+	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
+		receivedHeaderContentLength = r.Header.Get("Content-Length")
 		body, _ := ioutil.ReadAll(r.Body)
 		receivedBody = string(body)
 		w.Write([]byte("OK"))
@@ -213,12 +215,16 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	if receivedHeaderContentEncoding != want {
 		t.Errorf("the proxy didn't remove the `Content-Encoding: gzip` after decompressing the body, want empty, got: %s", receivedHeaderContentEncoding)
 	}
+	want = strconv.Itoa(len(`{"body": "content"}`))
+	if receivedHeaderContentLength != want {
+		t.Errorf("the proxy didn't correctly re-calculate the `Content-Length` after decompressing the body, want: %s, got: %s", want, receivedHeaderContentLength)
+	}
 }
 
 func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	var receivedHeaderContentEncoding string
 	var receivedBody []byte
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
 		receivedBody, _ = ioutil.ReadAll(r.Body)
 		w.Write([]byte("OK"))
@@ -230,7 +236,7 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 			Name: "Server1",
 			Connection: TargetConfigConnection{
 				HTTP: TargetConnectionHTTP{
-					URL: fakeRpc1Server.URL,
+					URL:         fakeRpc1Server.URL,
 					Compression: true,
 				},
 			},
@@ -273,19 +279,19 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	if receivedHeaderContentEncoding != want {
 		t.Errorf("the proxy didn't keep the header of `Content-Encoding: gzip`, want: %s, got: %s", want, receivedHeaderContentEncoding)
 	}
-	
+
 	var wantBody bytes.Buffer
 	g = gzip.NewWriter(&wantBody)
 	g.Write([]byte(`{"body": "content"}`))
 	g.Close()
-	
+
 	if bytes.Compare(receivedBody, wantBody.Bytes()) != 0 {
 		t.Errorf("the proxy didn't keep the body as is when forwarding gzipped body to the target.")
 	}
 }
 
 func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.T) {
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond) // The RPC Provider takes 100ms to reply
 		w.Write([]byte("OK"))
 	}))
@@ -333,7 +339,7 @@ func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.
 		time.Sleep(50 * time.Millisecond)
 		cancel()
 	}()
-	
+
 	rr = httptest.NewRecorder()
 	handler = http.HandlerFunc(httpFailoverProxy.ServeHTTP)
 	handler.ServeHTTP(rr, req)

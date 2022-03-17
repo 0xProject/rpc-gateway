@@ -52,6 +52,8 @@ targets:
         url: ""
 `
 
+var rpcRequestBody = `{"jsonrpc":"2.0","method":"eth_getBlockByHash","params":["0xb3b20624f8f0f86eb50dd04688409e5cea4bd02d700bf6e79e9384d47d6a5a35",true],"id":1}`
+
 type TestUrl struct {
 	UrlOne string
 	UrlTwo string
@@ -123,12 +125,15 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	fmt.Println("gateway serving from: ", gs.URL)
 
-	res, err := gsClient.Get(gs.URL)
+	req, err := http.NewRequest("POST", gs.URL, bytes.NewBufferString(``))
+	req.Header.Set("Content-Type", "application/json")
+	req.ContentLength = int64(len(rpcRequestBody))
+	res, err := gsClient.Do(req)
 	if err != nil {
 		t.Fatalf("gateway failed to handle the first failover with err: %s", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		t.Fatalf("gateway failed to handle the first failover, expect 200, got %v", res.StatusCode)
+		t.Errorf("gateway failed to handle the first failover, expect 200, got %v", res.StatusCode)
 	}
 
 	bodyContent, _ := ioutil.ReadAll(res.Body)

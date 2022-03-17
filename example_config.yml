@@ -28,5 +28,5 @@ targets:
   - name: "QuickNode"
     connection:
       http: # ws is supported by default, it will be a sticky connection.
-        url: "https://cloudflare-eth.com"
+        url: "https://cloudflare-eth.com/"
         # compression: true # Specify if the target supports request compression
