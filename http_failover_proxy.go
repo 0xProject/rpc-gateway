@@ -56,11 +56,11 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 	proxy.ModifyResponse = func(response *http.Response) error {
 		responseStatus.WithLabelValues(targetName, strconv.Itoa(response.StatusCode)).Inc()
 		if response.StatusCode == 429 {
-			zap.L().Warn("rate limited", zap.String("target", targetName))
+			zap.L().Warn("rate limited", zap.String("provider", targetName))
 			return errors.New("rate limited")
 		} else if response.StatusCode >= 300 {
 			body, _ := io.ReadAll(response.Body)
-			zap.L().Warn("received a non succesful status code", zap.Int("statusCode", response.StatusCode), zap.String("body", string(body)))
+			zap.L().Warn("received a non succesful status code", zap.String("provider", targetName), zap.Int("statusCode", response.StatusCode), zap.String("body", string(body)))
 			return fmt.Errorf("status code: %d", response.StatusCode)
 		} else {
 			h.healthcheckManager.ObserveSuccess(targetName)
@@ -85,7 +85,7 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 			request.Body = io.NopCloser(buf)
 		}
 
-		zap.L().Warn("handling a failed request", zap.Error(e))
+		zap.L().Warn("handling a failed request", zap.String("provider", targetName), zap.Error(e))
 		h.healthcheckManager.ObserveFailure(targetName)
 		if retries < h.gatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget {
 			requestErrorsHandled.WithLabelValues(targetName, "retry").Inc()
