@@ -36,14 +36,14 @@ healthChecks:
   rollingWindowFailureThreshold: 0.90 # If the request success rate falls below 90% mark target as tainted
 
 targets:
-  - name: "ToxicCloudflare"
+  - name: "ToxicAnkr"
     connection:
       http:
         url: "{{.UrlOne}}"
         compression: false
       ws:
         url: ""
-  - name: "CloudflareTwo"
+  - name: "AnkrTwo"
     connection:
       http:
         url: "{{.UrlTwo}}"
@@ -97,7 +97,7 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	// config string
 	var tpl bytes.Buffer
-	tu := TestUrl{"http://0.0.0.0:9991", "https://cloudflare-eth.com/"}
+	tu := TestUrl{"http://0.0.0.0:9991", "https://rpc.ankr.com/eth"}
 	tmpl, err := template.New("test").Parse(rpcGatewayConfig)
 	if err != nil {
 		t.Fatal(err)

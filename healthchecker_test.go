@@ -20,7 +20,7 @@ func TestBasicHealthchecker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	healtcheckConfig := RPCHealthcheckerConfig{
-		URL:              "https://cloudflare-eth.com",
+		URL:              "https://rpc.ankr.com/eth",
 		Interval:         1 * time.Second,
 		Timeout:          2 * time.Second,
 		FailureThreshold: 1,
@@ -56,7 +56,7 @@ func TestBasicHealthchecker(t *testing.T) {
 
 func TestGasLeftCall(t *testing.T) {
 	client := &http.Client{}
-	url := "https://cloudflare-eth.com"
+	url := "https://rpc.ankr.com/eth"
 
 	result, err := performGasLeftCall(context.TODO(), client, url)
 	if err != nil {
