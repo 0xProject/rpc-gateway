@@ -11,7 +11,19 @@ import (
 	"strings"
 )
 
-var gasLeftCallRaw = []byte(`
+type JSONRPCResponse struct {
+	Jsonrpc string `json:"jsonrpc"`
+	ID      int    `json:"id"`
+	Result  string `json:"result"`
+}
+
+func hexToUint(hexString string) (uint64, error) {
+	hexString = strings.ReplaceAll(hexString, "0x", "")
+	return strconv.ParseUint(hexString, 16, 64)
+}
+
+func performGasLeftCall(ctx context.Context, client *http.Client, url string) (uint64, error) {
+	var gasLeftCallRaw = []byte(`
 {
     "method": "eth_call",
     "params": [
@@ -34,18 +46,6 @@ var gasLeftCallRaw = []byte(`
 }
 `)
 
-type JsonRPCResponse struct {
-	Jsonrpc string `json:"jsonrpc"`
-	ID      int    `json:"id"`
-	Result  string `json:"result"`
-}
-
-func hexToUint(hexString string) (uint64, error) {
-	hexString = strings.Replace(hexString, "0x", "", -1)
-	return strconv.ParseUint(hexString, 16, 64)
-}
-
-func performGasLeftCall(ctx context.Context, client *http.Client, url string) (uint64, error) {
 	requestBody := bytes.NewBuffer(gasLeftCallRaw)
 	request, err := http.NewRequestWithContext(ctx, "POST", url, requestBody)
 	request.Header.Add("Content-Type", "application/json")
@@ -63,7 +63,7 @@ func performGasLeftCall(ctx context.Context, client *http.Client, url string) (u
 		return 0, fmt.Errorf("got non-200 response, status: %d, body: %s", resp.StatusCode, bodyContent)
 	}
 
-	result := &JsonRPCResponse{}
+	result := &JSONRPCResponse{}
 	err = json.NewDecoder(resp.Body).Decode(result)
 	if err != nil {
 		return 0, err

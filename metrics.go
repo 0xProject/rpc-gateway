@@ -12,8 +12,6 @@ import (
 )
 
 var (
-
-	//requestDurations = ""
 	requestBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 
 	responseTimeHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -73,20 +71,20 @@ func init() {
 	prometheus.MustRegister(healthcheckResponseTimeHistogram)
 }
 
-type metricsServer struct {
+type MetricsServer struct {
 	server *http.Server
 }
 
-func (h *metricsServer) Start() error {
+func (h *MetricsServer) Start() error {
 	zap.L().Info("metrics server starting", zap.String("listenAddr", h.server.Addr))
 	return h.server.ListenAndServe()
 }
 
-func (h *metricsServer) Stop() error {
+func (h *MetricsServer) Stop() error {
 	return h.server.Close()
 }
 
-func NewMetricsServer(config MetricsConfig) *metricsServer {
+func NewMetricsServer(config MetricsConfig) *MetricsServer {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.Handle("/metrics", promhttp.Handler())
@@ -97,7 +95,7 @@ func NewMetricsServer(config MetricsConfig) *metricsServer {
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-	return &metricsServer{
+	return &MetricsServer{
 		server: srv,
 	}
 }

@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-func createTestRpcGatewayConfig() RpcGatewayConfig {
-	return RpcGatewayConfig{
+func createTestRpcGatewayConfig() RPCGatewayConfig {
+	return RPCGatewayConfig{
 		Metrics: MetricsConfig{},
 		Proxy: ProxyConfig{
 			AllowedNumberOfRetriesPerTarget: 3,
@@ -38,11 +38,13 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 		http.Error(w, "Bad Request", http.StatusInternalServerError)
 	}))
 	defer fakeRpc1Server.Close()
+
 	fakeRpc2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
 		w.Write(body)
 	}))
 	defer fakeRpc2Server.Close()
+
 	rpcGatewayConfig := createTestRpcGatewayConfig()
 	rpcGatewayConfig.Targets = []TargetConfig{
 		{
@@ -70,7 +72,7 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
 	// the failoverProxy should automatically reroute the request to the second RPC Server by itself
-	httpFailoverProxy := NewHttpFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest("POST", "/", requestBody)
@@ -134,7 +136,7 @@ func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewHttpFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -184,7 +186,7 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewHttpFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
 
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
@@ -252,7 +254,7 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewHttpFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
 
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
@@ -314,7 +316,7 @@ func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewHttpFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
 
 	req, err := http.NewRequest("POST", "/", bytes.NewBufferString(`{}`))
 	if err != nil {

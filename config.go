@@ -18,18 +18,18 @@ type ProxyConfig struct {
 }
 
 type HealthCheckConfig struct {
-	Interval                      time.Duration `yaml:"interval"`
-	Timeout                       time.Duration `yaml:"timeout"`
-	FailureThreshold              uint          `yaml:"failureThreshold"`
-	SuccessThreshold              uint          `yaml:"successThreshold"`
+	Interval         time.Duration `yaml:"interval"`
+	Timeout          time.Duration `yaml:"timeout"`
+	FailureThreshold uint          `yaml:"failureThreshold"`
+	SuccessThreshold uint          `yaml:"successThreshold"`
 
 	// Should the RollingWindow Taint be enabled
 	// Set this to false will disable marking the RPC as tainted
 	// when the error rate reaches the threshold
-	RollingWindowTaintEnabled			bool					`yaml:"rollingWindowTaintEnabled"`
+	RollingWindowTaintEnabled bool `yaml:"rollingWindowTaintEnabled"`
 
-	RollingWindowSize             int           `yaml:"rollingWindowSize"`
-	RollingWindowFailureThreshold float64       `yaml:"rollingWindowFailureThreshold"`
+	RollingWindowSize             int     `yaml:"rollingWindowSize"`
+	RollingWindowFailureThreshold float64 `yaml:"rollingWindowFailureThreshold"`
 }
 
 type TargetConnectionHTTP struct {
@@ -46,11 +46,11 @@ type TargetConfig struct {
 	Connection TargetConfigConnection `yaml:"connection"`
 }
 
-func (t *TargetConfig) GetParsedHttpURL() (*url.URL, error) {
+func (t *TargetConfig) GetParsedHTTPURL() (*url.URL, error) {
 	return url.Parse(t.Connection.HTTP.URL)
 }
 
-type RpcGatewayConfig struct {
+type RPCGatewayConfig struct {
 	Metrics      MetricsConfig     `yaml:"metrics"`
 	Proxy        ProxyConfig       `yaml:"proxy"`
 	HealthChecks HealthCheckConfig `yaml:"healthChecks"`

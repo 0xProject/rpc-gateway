@@ -13,29 +13,29 @@ type HealthcheckManagerConfig struct {
 	Config  HealthCheckConfig
 }
 
-func NewRollingWindowWrapper(name string, windowSize int) *rollingWindowWrapper {
-	return &rollingWindowWrapper{
+func NewRollingWindowWrapper(name string, windowSize int) *RollingWindowWrapper {
+	return &RollingWindowWrapper{
 		Name:          name,
 		rollingWindow: NewRollingWindow(windowSize),
 	}
 }
 
-type rollingWindowWrapper struct {
+type RollingWindowWrapper struct {
 	rollingWindow *RollingWindow
 	Name          string
 }
 
 type HealthcheckManager struct {
 	healthcheckers []Healthchecker
-	rollingWindows []*rollingWindowWrapper
+	rollingWindows []*RollingWindowWrapper
 
-	requestFailureThreshold float64
+	requestFailureThreshold   float64
 	rollingWindowTaintEnabled bool
 }
 
 func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager {
 	healthCheckers := []Healthchecker{}
-	rollingWindows := []*rollingWindowWrapper{}
+	rollingWindows := []*RollingWindowWrapper{}
 
 	for _, target := range config.Targets {
 		healthchecker, err := NewHealthchecker(RPCHealthcheckerConfig{
@@ -53,12 +53,12 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 
 		healthCheckers = append(healthCheckers, healthchecker)
 		rollingWindows = append(rollingWindows, NewRollingWindowWrapper(target.Name, config.Config.RollingWindowSize))
-
 	}
+
 	return &HealthcheckManager{
-		healthcheckers:          healthCheckers,
-		rollingWindows:          rollingWindows,
-		requestFailureThreshold: config.Config.RollingWindowFailureThreshold,
+		healthcheckers:            healthCheckers,
+		rollingWindows:            rollingWindows,
+		requestFailureThreshold:   config.Config.RollingWindowFailureThreshold,
 		rollingWindowTaintEnabled: config.Config.RollingWindowTaintEnabled,
 	}
 }
@@ -78,8 +78,8 @@ func (h *HealthcheckManager) runLoop(ctx context.Context) error {
 }
 
 func (h *HealthcheckManager) checkForFailingRequests() {
-	if (!h.rollingWindowTaintEnabled) {
-		return 
+	if !h.rollingWindowTaintEnabled {
+		return
 	}
 	for _, wrapper := range h.rollingWindows {
 		rollingWindow := wrapper.rollingWindow
@@ -127,7 +127,6 @@ func (h *HealthcheckManager) Stop(ctx context.Context) error {
 	}
 
 	return nil
-
 }
 
 func (h *HealthcheckManager) GetTargetIndexByName(name string) int {

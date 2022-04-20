@@ -39,12 +39,12 @@ type RPCHealthcheckerConfig struct {
 }
 
 const (
-	// Intially we wait for 30s then remove the taint
+	// Initially we wait for 30s then remove the taint.
 	initialTaintWaitTime = time.Second * 30
-	// We do exponential backoff taint removal but the wait time won't be more than 10 minutes
+	// We do exponential backoff taint removal but the wait time won't be more than 10 minutes.
 	maxTaintWaitTime = time.Minute * 10
-	// Reset taint wait time (to `initialTaintWaitTime`) if it's been 5 minutes since the last taint removal
-	resetTaintWaitTimeAfterDuration = time.Minute * 5 //
+	// Reset taint wait time (to `initialTaintWaitTime`) if it's been 5 minutes since the last taint removal.
+	resetTaintWaitTimeAfterDuration = time.Minute * 5
 )
 
 type RPCHealthchecker struct {
@@ -191,9 +191,9 @@ func (h *RPCHealthchecker) IsHealthy() bool {
 	if h.isTainted {
 		// If the healthchecker is tainted, we always return unhealthy
 		return false
-	} else {
-		return h.isHealthy
 	}
+
+	return h.isHealthy
 }
 
 func (h *RPCHealthchecker) BlockNumber() uint64 {
@@ -216,7 +216,7 @@ func (h *RPCHealthchecker) Taint() {
 	// Increase the wait time (exponentially) for taint removal if the RPC was tainted
 	// within resetTaintWaitTimeAfterDuration since the last taint removal
 	if time.Now().Sub(h.lastTaintRemoval) <= resetTaintWaitTimeAfterDuration {
-		h.currentTaintWaitTime = h.currentTaintWaitTime * 2
+		h.currentTaintWaitTime *= 2
 		if h.currentTaintWaitTime > maxTaintWaitTime {
 			h.currentTaintWaitTime = maxTaintWaitTime
 		}
