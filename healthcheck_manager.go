@@ -30,6 +30,7 @@ type HealthcheckManager struct {
 	rollingWindows []*rollingWindowWrapper
 
 	requestFailureThreshold float64
+	rollingWindowTaintEnabled bool
 }
 
 func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager {
@@ -58,6 +59,7 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 		healthcheckers:          healthCheckers,
 		rollingWindows:          rollingWindows,
 		requestFailureThreshold: config.Config.RollingWindowFailureThreshold,
+		rollingWindowTaintEnabled: config.Config.RollingWindowTaintEnabled,
 	}
 }
 
@@ -76,6 +78,9 @@ func (h *HealthcheckManager) runLoop(ctx context.Context) error {
 }
 
 func (h *HealthcheckManager) checkForFailingRequests() {
+	if (!h.rollingWindowTaintEnabled) {
+		return 
+	}
 	for _, wrapper := range h.rollingWindows {
 		rollingWindow := wrapper.rollingWindow
 		if rollingWindow.HasEnoughObservations() {
