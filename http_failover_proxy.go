@@ -61,6 +61,7 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 		} else if response.StatusCode >= 300 {
 			body, _ := io.ReadAll(response.Body)
 			zap.L().Warn("received a non succesful status code", zap.String("provider", targetName), zap.Int("statusCode", response.StatusCode), zap.String("body", string(body)))
+
 			return fmt.Errorf("status code: %d", response.StatusCode)
 		} else {
 			h.healthcheckManager.ObserveSuccess(targetName)
@@ -85,7 +86,7 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 			request.Body = io.NopCloser(buf)
 		}
 
-		zap.L().Warn("handling a failed request", zap.String("provider", targetName), zap.Error(e))
+		zap.L().Warn("handling a failed request", zap.String("provider", targetName), zap.Error(e), zap.String("jsonrpc", fmt.Sprint(request.Body)))
 		h.healthcheckManager.ObserveFailure(targetName)
 		if retries < h.gatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget {
 			requestErrorsHandled.WithLabelValues(targetName, "retry").Inc()
@@ -93,6 +94,7 @@ func (h *HttpFailoverProxy) AddHttpTarget(targetConfig TargetConfig, targetIndex
 			time.Sleep(h.gatewayConfig.Proxy.RetryDelay)
 			ctx := context.WithValue(request.Context(), Retries, retries+1)
 			proxy.ServeHTTP(writer, request.WithContext(ctx))
+
 			return
 		}
 
