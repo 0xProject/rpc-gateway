@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mwitkow/go-conntrack"
+	"github.com/pkg/errors"
 
 	"go.uber.org/zap"
 )
@@ -21,69 +21,86 @@ import (
 func NewPathPreservingProxy(targetConfig TargetConfig, proxyConfig ProxyConfig) (*httputil.ReverseProxy, error) {
 	targetURL, err := url.Parse(targetConfig.Connection.HTTP.URL)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cannot parse url")
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
-	proxy.Director = func(req *http.Request) {
-		req.Host = targetURL.Host
-		req.URL.Scheme = targetURL.Scheme
-		req.URL.Host = targetURL.Host
+	proxy.Director = func(r *http.Request) {
+		r.Host = targetURL.Host
+		r.URL.Scheme = targetURL.Scheme
+		r.URL.Host = targetURL.Host
 
 		// this bit right here makes sure that all the rpc URLs with
 		// /<apikey> work.
-		req.URL.Path = targetURL.Path
+		//
+		r.URL.Path = targetURL.Path
 
 		// Workaround to reserve request body in ReverseProxy.ErrorHandler
 		// see more here: https://github.com/golang/go/issues/33726
-		if req.Body != nil && req.ContentLength != 0 {
+		//
+		if r.Body != nil && r.ContentLength > 0 {
 			var buf bytes.Buffer
-			var bodyReader io.Reader
+			var body io.Reader
 
-			// If the body is gzip-ed but the target doesn't support request compression
-			// we decompress the body before sending
+			// If the body is gzip-ed but the target doesn't support request
+			// compression we decompress the body before sending
 			//
-			// Edge case: target 1 doesn't support request compression but target 2 does
-			// 	In this case, since the body is already decompressed to serve the target 1,
-			//  in a reroute event, target 2 will just receive the decompressed body instead
-			//  of the original compressed one.
-			//  We could fix this by either re-compress the body or keep a copy of the original (gzipped) body.
-			if req.Header.Get("Content-Encoding") == "gzip" && !targetConfig.Connection.HTTP.Compression {
+			// Edge case: target 1 doesn't support request compression but
+			// target 2 does In this case, since the body is already
+			// decompressed to serve the target 1, in a reroute event, target 2
+			// will just receive the decompressed body instead of the original
+			// compressed one. We could fix this by either re-compress the body
+			// or keep a copy of the original (gzipped) body.
+			//
+			if r.Header.Get("Content-Encoding") == "gzip" && !targetConfig.Connection.HTTP.Compression {
 				zap.L().Debug("go to gzip")
 
-				gzr, err := gzip.NewReader(req.Body)
-
+				uncompressed, err := gzip.NewReader(r.Body)
 				if err != nil {
-					zap.L().Error("error while initiate gzip reader", zap.Error(err))
-					// Failed to read gzip content, treat it as uncompressed data
-					bodyReader = io.TeeReader(req.Body, &buf)
-				} else {
-					// Decompress the body
-					data, err := ioutil.ReadAll(gzr)
+					zap.L().Error("cannot initiate gzip reader", zap.Error(err))
 
+					// Failed to read gzip content, treat it as uncompressed data.
+					//
+					body = io.TeeReader(r.Body, &buf)
+				} else {
+					// Decompress the body.
+					//
+					data, err := ioutil.ReadAll(uncompressed)
 					if err != nil {
-						panic(err)
+						zap.L().Fatal("cannot read uncompress data", zap.Error(err))
 					}
 
 					// Replace body content with uncompressed data
 					// Remove the "Content-Encoding: gzip" because the body is decompressed already
-					// and correct the ContentLength header
-					bodyReader = bytes.NewReader(data)
-					req.Header.Del("Content-Encoding")
-					req.ContentLength = int64(len(data))
+					// and correct the Content-Length header
+					//
+					body = io.TeeReader(bytes.NewReader(data), &buf)
+
+					r.Header.Del("Content-Encoding")
+					r.ContentLength = int64(len(data))
 				}
 			} else {
 				zap.L().Debug("not go to gzip")
-				bodyReader = io.TeeReader(req.Body, &buf)
+				body = io.TeeReader(r.Body, &buf)
 			}
-			req.Body = io.NopCloser(bodyReader)
 
-			ctx := context.WithValue(req.Context(), "bodybuf", &buf)
-			r2 := req.WithContext(ctx)
-			*req = *r2
+			r.Body = io.NopCloser(body)
+
+			// Here's an interesting fact. There's no data in buf, until a call
+			// to Read(). With Read() call, it will write data to bytes.Buffer.
+			//
+			// I want to call it out, because it's damn smart.
+			//
+			ctx := context.WithValue(r.Context(), "bodybuf", &buf)
+
+			// WithContext creates a shallow copy. It's highly important to
+			// override underlying memory pointed by pointer.
+			//
+			r2 := r.WithContext(ctx)
+			*r = *r2
 		}
 
-		zap.L().Debug(fmt.Sprintf("forwarding request to: %s", req.URL))
+		zap.L().Debug("request forward", zap.String("URL", r.URL.String()))
 	}
 
 	conntrackDialer := conntrack.NewDialContextFunc(

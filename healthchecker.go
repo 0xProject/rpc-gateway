@@ -225,7 +225,7 @@ func (h *RPCHealthchecker) Taint() {
 	}
 	zap.L().Info("RPC Tainted", zap.String("name", h.config.Name), zap.Int64("taintWaitTime", int64(h.currentTaintWaitTime)))
 	go func() {
-		time.Sleep(h.currentTaintWaitTime)
+		<-time.After(h.currentTaintWaitTime)
 		h.RemoveTaint()
 	}()
 }
