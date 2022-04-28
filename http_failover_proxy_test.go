@@ -35,7 +35,7 @@ func createTestRpcGatewayConfig() RpcGatewayConfig {
 
 func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		http.Error(w, "Bad Request", http.StatusInternalServerError)
 	}))
 	defer fakeRpc1Server.Close()
 	fakeRpc2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
