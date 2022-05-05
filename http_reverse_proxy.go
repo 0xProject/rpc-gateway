@@ -28,7 +28,7 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 	var err error
 
 	if r.Body == nil {
-		return errors.New("no request body")
+		return errors.New("no body")
 	}
 
 	// The standard library stores ContentLength as signed data type.

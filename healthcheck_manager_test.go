@@ -4,10 +4,13 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestHealthcheckManager(t *testing.T) {
-	t.Parallel()
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
 	manager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: []TargetConfig{
 			{
@@ -55,7 +58,8 @@ func TestHealthcheckManager(t *testing.T) {
 }
 
 func TestHealthcheckManagerRollingWindowTaintEnabled(t *testing.T) {
-	t.Parallel()
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
 	manager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: []TargetConfig{
 			{
@@ -108,7 +112,8 @@ func TestHealthcheckManagerRollingWindowTaintEnabled(t *testing.T) {
 }
 
 func TestHealthcheckManagerRollingWindowTaintDisabled(t *testing.T) {
-	t.Parallel()
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
 	manager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: []TargetConfig{
 			{

@@ -73,13 +73,6 @@ issues:
         - errcheck
         - ineffassign
     # TODO
-    # Metrics implementation needs a bit more love to get us with no global variables.
-    #
-    - path: metrics.go
-      linters:
-        - gochecknoglobals
-        - gochecknoinits
-    # TODO
     # The key name should be embeded into a struct.
     - path: http_reverse_proxy.go
       linters:
