@@ -108,12 +108,12 @@ func TestRpcGatewayFailover(t *testing.T) {
 	configString := tpl.String()
 
 	fmt.Println(configString)
-	config, err := NewRpcGatewayFromConfigString(configString)
+	config, err := NewRPCGatewayFromConfigString(configString)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	gateway := NewRpcGateway(*config)
+	gateway := NewRPCGateway(*config)
 	go gateway.Start(context.TODO())
 	gs := httptest.NewServer(gateway)
 	gsClient := gs.Client()

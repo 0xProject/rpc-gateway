@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// TestBasicHealthchecker checks if it runs with default options. It outputs
+// TestBasicHealthchecker checks if it runs with default options.
 func TestBasicHealthchecker(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	// We replace the global logger with this initialized here for simplyfication.
@@ -74,5 +74,4 @@ func TestGasLeftCall(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected the performGasLeftCall to timeout")
 	}
-
 }

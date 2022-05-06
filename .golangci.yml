@@ -1,0 +1,86 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - bodyclose
+    - deadcode
+    - depguard
+    - dogsled
+    - dupl
+    - errcheck
+    - errorlint
+    - exportloopref
+    - funlen
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gofmt
+    - goimports
+    - gomoddirectives
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - nestif
+    - prealloc
+    - revive
+    - rowserrcheck
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - whitespace
+    - gochecknoglobals
+
+linters-settings:
+  funlen:
+    lines: 100
+
+issues:
+  max-same-issues: 0 # unlimited
+  max-issues-per-linter: 0 # unlimited
+  exclude-rules:
+    - path: test_utils.go
+      linters:
+        - dupl              # many functions in tests look like duplicates
+        - funlen            # test function can be very long due to test cases
+        - gochecknoglobals  # globals in tests are fine
+        - gocognit          # test functions can be long/complex
+        - gomnd             # there are many magic numbers in tests
+        - revive            # naming ain't eazy
+        - errcheck
+        - ineffassign
+    - path: _test.go
+      linters:
+        - dupl              # many functions in tests look like duplicates
+        - funlen            # test function can be very long due to test cases
+        - gochecknoglobals  # globals in tests are fine
+        - gocognit          # test functions can be long/complex
+        - gomnd             # there are many magic numbers in tests
+        - revive            # naming ain't eazy
+        - errcheck
+        - ineffassign
+    # TODO
+    # Metrics implementation needs a bit more love to get us with no global variables.
+    #
+    - path: metrics.go
+      linters:
+        - gochecknoglobals
+        - gochecknoinits
+    # TODO
+    # The key name should be embeded into a struct.
+    - path: http_reverse_proxy.go
+      linters:
+        - revive

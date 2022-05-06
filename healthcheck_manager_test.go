@@ -54,7 +54,6 @@ func TestHealthcheckManager(t *testing.T) {
 	manager.Stop(ctx)
 }
 
-
 func TestHealthcheckManagerRollingWindowTaintEnabled(t *testing.T) {
 	t.Parallel()
 	manager := NewHealthcheckManager(HealthcheckManagerConfig{
@@ -78,12 +77,12 @@ func TestHealthcheckManagerRollingWindowTaintEnabled(t *testing.T) {
 		},
 
 		Config: HealthCheckConfig{
-			Interval:         200 * time.Millisecond,
-			Timeout:          2000 * time.Millisecond,
-			FailureThreshold: 1,
-			SuccessThreshold: 1,
-			RollingWindowTaintEnabled: true,
-			RollingWindowSize: 2,
+			Interval:                      200 * time.Millisecond,
+			Timeout:                       2000 * time.Millisecond,
+			FailureThreshold:              1,
+			SuccessThreshold:              1,
+			RollingWindowTaintEnabled:     true,
+			RollingWindowSize:             2,
 			RollingWindowFailureThreshold: 0.9,
 		},
 	})
@@ -108,7 +107,6 @@ func TestHealthcheckManagerRollingWindowTaintEnabled(t *testing.T) {
 	manager.Stop(ctx)
 }
 
-
 func TestHealthcheckManagerRollingWindowTaintDisabled(t *testing.T) {
 	t.Parallel()
 	manager := NewHealthcheckManager(HealthcheckManagerConfig{
@@ -132,12 +130,12 @@ func TestHealthcheckManagerRollingWindowTaintDisabled(t *testing.T) {
 		},
 
 		Config: HealthCheckConfig{
-			Interval:         200 * time.Millisecond,
-			Timeout:          2000 * time.Millisecond,
-			FailureThreshold: 1,
-			SuccessThreshold: 1,
-			RollingWindowTaintEnabled: false,
-			RollingWindowSize: 2,
+			Interval:                      200 * time.Millisecond,
+			Timeout:                       2000 * time.Millisecond,
+			FailureThreshold:              1,
+			SuccessThreshold:              1,
+			RollingWindowTaintEnabled:     false,
+			RollingWindowSize:             2,
 			RollingWindowFailureThreshold: 0.9,
 		},
 	})

@@ -21,7 +21,6 @@ func TestRollingAverage(t *testing.T) {
 	if r.Sum() != 4 {
 		t.Fatal("expected the sum to be equal 4")
 	}
-
 }
 
 func TestRollingWindowReset(t *testing.T) {

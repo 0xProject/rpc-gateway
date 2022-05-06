@@ -36,7 +36,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 // LoggingMiddleware logs the incoming HTTP request & its duration
-// and also report the metrics to prometheus
+// and also report the metrics to prometheus.
 func LoggingMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {

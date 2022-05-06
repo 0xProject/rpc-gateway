@@ -14,18 +14,18 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type RpcGateway struct {
-	httpFailoverProxy  *HttpFailoverProxy
+type RPCGateway struct {
+	httpFailoverProxy  *HTTPFailoverProxy
 	healthcheckManager *HealthcheckManager
 
 	server *http.Server
 }
 
-func (r *RpcGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r *RPCGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.server.Handler.ServeHTTP(w, req)
 }
 
-func (r *RpcGateway) Start(ctx context.Context) error {
+func (r *RPCGateway) Start(ctx context.Context) error {
 	zap.L().Info("starting rpc gateway")
 
 	go func() {
@@ -47,7 +47,7 @@ func (r *RpcGateway) Start(ctx context.Context) error {
 	return r.server.Serve(httpListener)
 }
 
-func (r *RpcGateway) Stop(ctx context.Context) error {
+func (r *RPCGateway) Stop(ctx context.Context) error {
 	zap.L().Info("stopping rpc gateway")
 	err := r.healthcheckManager.Stop(ctx)
 	if err != nil {
@@ -56,16 +56,16 @@ func (r *RpcGateway) Stop(ctx context.Context) error {
 	return r.server.Close()
 }
 
-func (r *RpcGateway) GetCurrentTarget() string {
+func (r *RPCGateway) GetCurrentTarget() string {
 	return r.httpFailoverProxy.GetNextTargetName()
 }
 
-func NewRpcGateway(config RpcGatewayConfig) *RpcGateway {
+func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: config.Targets,
 		Config:  config.HealthChecks,
 	})
-	httpFailoverProxy := NewHttpFailoverProxy(config, healthcheckManager)
+	httpFailoverProxy := NewHTTPFailoverProxy(config, healthcheckManager)
 
 	r := mux.NewRouter()
 	r.Use(LoggingMiddleware())
@@ -78,24 +78,24 @@ func NewRpcGateway(config RpcGatewayConfig) *RpcGateway {
 		ReadTimeout:  15 * time.Second,
 	}
 
-	return &RpcGateway{
+	return &RPCGateway{
 		httpFailoverProxy:  httpFailoverProxy,
 		healthcheckManager: healthcheckManager,
 		server:             srv,
 	}
 }
 
-func NewRpcGatewayFromConfigFile(path string) (*RpcGatewayConfig, error) {
+func NewRPCGatewayFromConfigFile(path string) (*RPCGatewayConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewRpcGatewayFromConfigBytes(data)
+	return NewRPCGatewayFromConfigBytes(data)
 }
 
-func NewRpcGatewayFromConfigBytes(configBytes []byte) (*RpcGatewayConfig, error) {
-	config := RpcGatewayConfig{}
+func NewRPCGatewayFromConfigBytes(configBytes []byte) (*RPCGatewayConfig, error) {
+	config := RPCGatewayConfig{}
 	err := yaml.Unmarshal(configBytes, &config)
 	if err != nil {
 		return nil, err
@@ -104,6 +104,6 @@ func NewRpcGatewayFromConfigBytes(configBytes []byte) (*RpcGatewayConfig, error)
 	return &config, nil
 }
 
-func NewRpcGatewayFromConfigString(configString string) (*RpcGatewayConfig, error) {
-	return NewRpcGatewayFromConfigBytes([]byte(configString))
+func NewRPCGatewayFromConfigString(configString string) (*RPCGatewayConfig, error) {
+	return NewRPCGatewayFromConfigBytes([]byte(configString))
 }

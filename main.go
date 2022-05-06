@@ -40,13 +40,13 @@ func main() {
 	// Initialize config
 	configFileLocation := flag.String("config", "./config.yml", "path to rpc gateway config file")
 	flag.Parse()
-	config, err := NewRpcGatewayFromConfigFile(*configFileLocation)
+	config, err := NewRPCGatewayFromConfigFile(*configFileLocation)
 	if err != nil {
 		logger.Fatal("failed to get config", zap.Error(err))
 	}
 
 	// start gateway
-	rpcGateway := NewRpcGateway(*config)
+	rpcGateway := NewRPCGateway(*config)
 
 	// start healthz and metrics server
 	metricsServer := NewMetricsServer(config.Metrics)
