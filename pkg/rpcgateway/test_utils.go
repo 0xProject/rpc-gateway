@@ -1,4 +1,4 @@
-package main
+package rpcgateway
 
 import (
 	"net/http"

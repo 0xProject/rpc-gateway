@@ -1,4 +1,4 @@
-package main
+package proxy
 
 import (
 	"bytes"
@@ -20,8 +20,8 @@ type HTTPTarget struct {
 	Proxy  *httputil.ReverseProxy
 }
 
-type HTTPFailoverProxy struct {
-	gatewayConfig      RPCGatewayConfig
+type Proxy struct {
+	config             Config
 	targets            []*HTTPTarget
 	healthcheckManager *HealthcheckManager
 
@@ -30,9 +30,9 @@ type HTTPFailoverProxy struct {
 	metricResponseStatus *prometheus.CounterVec
 }
 
-func NewHTTPFailoverProxy(config RPCGatewayConfig, healthCheckManager *HealthcheckManager) *HTTPFailoverProxy {
-	proxy := &HTTPFailoverProxy{
-		gatewayConfig:      config,
+func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy {
+	proxy := &Proxy{
+		config:             proxyConfig,
 		healthcheckManager: healthCheckManager,
 		metricResponseTime: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -72,7 +72,7 @@ func NewHTTPFailoverProxy(config RPCGatewayConfig, healthCheckManager *Healthche
 		}),
 	}
 
-	for index, target := range config.Targets {
+	for index, target := range proxy.config.Targets {
 		if err := proxy.AddTarget(target, uint(index)); err != nil {
 			panic(err)
 		}
@@ -81,7 +81,7 @@ func NewHTTPFailoverProxy(config RPCGatewayConfig, healthCheckManager *Healthche
 	return proxy
 }
 
-func (h *HTTPFailoverProxy) doModifyResponse(config TargetConfig) func(*http.Response) error {
+func (h *Proxy) doModifyResponse(config TargetConfig) func(*http.Response) error {
 	return func(resp *http.Response) error {
 		h.metricResponseStatus.WithLabelValues(config.Name, strconv.Itoa(resp.StatusCode)).Inc()
 
@@ -121,7 +121,7 @@ func (h *HTTPFailoverProxy) doModifyResponse(config TargetConfig) func(*http.Res
 	}
 }
 
-func (h *HTTPFailoverProxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig, index uint) func(http.ResponseWriter, *http.Request, error) {
+func (h *Proxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig, index uint) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, e error) {
 		// The client canceled the request (e.g. 0x API has a 5s timeout for RPC request)
 		// we stop here as it doesn't make sense to retry/reroute anymore.
@@ -141,11 +141,11 @@ func (h *HTTPFailoverProxy) doErrorHandler(proxy *httputil.ReverseProxy, config 
 
 		zap.L().Warn("handling a failed request", zap.String("provider", config.Name), zap.Error(e))
 		h.healthcheckManager.ObserveFailure(config.Name)
-		if retries < h.gatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget {
+		if retries < h.config.Proxy.AllowedNumberOfRetriesPerTarget {
 			h.metricRequestErrors.WithLabelValues(config.Name, "retry").Inc()
 			// we add a configurable delay before resending request
 			//
-			<-time.After(h.gatewayConfig.Proxy.RetryDelay)
+			<-time.After(h.config.Proxy.RetryDelay)
 
 			ctx := context.WithValue(r.Context(), Retries, retries+1)
 			proxy.ServeHTTP(w, r.WithContext(ctx))
@@ -174,8 +174,8 @@ func (h *HTTPFailoverProxy) doErrorHandler(proxy *httputil.ReverseProxy, config 
 	}
 }
 
-func (h *HTTPFailoverProxy) AddTarget(config TargetConfig, index uint) error {
-	proxy, err := NewPathPreservingProxy(config, h.gatewayConfig.Proxy)
+func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
+	proxy, err := NewReverseProxy(target, h.config)
 	if err != nil {
 		return err
 	}
@@ -184,38 +184,38 @@ func (h *HTTPFailoverProxy) AddTarget(config TargetConfig, index uint) error {
 	// ErrorHandler
 	// proxy.ModifyResponse = h.doModifyResponse(config)
 	//
-	proxy.ModifyResponse = h.doModifyResponse(config)
-	proxy.ErrorHandler = h.doErrorHandler(proxy, config, index)
+	proxy.ModifyResponse = h.doModifyResponse(target)
+	proxy.ErrorHandler = h.doErrorHandler(proxy, target, index)
 
 	h.targets = append(
 		h.targets,
 		&HTTPTarget{
-			Config: config,
+			Config: target,
 			Proxy:  proxy,
 		})
 
 	return nil
 }
 
-func (h *HTTPFailoverProxy) GetNextTarget() *HTTPTarget {
+func (h *Proxy) GetNextTarget() *HTTPTarget {
 	idx := h.healthcheckManager.GetNextHealthyTargetIndex()
 
 	return h.targets[idx]
 }
 
-func (h *HTTPFailoverProxy) GetNextTargetExcluding(indexes []uint) *HTTPTarget {
+func (h *Proxy) GetNextTargetExcluding(indexes []uint) *HTTPTarget {
 	idx := h.healthcheckManager.GetNextHealthyTargetIndexExcluding(indexes)
 
 	return h.targets[idx]
 }
 
-func (h *HTTPFailoverProxy) GetNextTargetName() string {
+func (h *Proxy) GetNextTargetName() string {
 	return h.GetNextTarget().Config.Name
 }
 
-func (h *HTTPFailoverProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reroutes := GetReroutesFromContext(r)
-	if reroutes > h.gatewayConfig.Proxy.AllowedNumberOfReroutes {
+	if reroutes > h.config.Proxy.AllowedNumberOfReroutes {
 		targetName := GetTargetNameFromContext(r)
 		zap.L().Warn("request reached maximum reroutes", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
 		h.metricRequestErrors.WithLabelValues(targetName, "failure").Inc()

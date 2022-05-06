@@ -1,4 +1,4 @@
-package main
+package proxy
 
 import (
 	"context"
@@ -249,7 +249,7 @@ func (h *RPCHealthchecker) Taint() {
 	h.isTainted = true
 	// Increase the wait time (exponentially) for taint removal if the RPC was tainted
 	// within resetTaintWaitTimeAfterDuration since the last taint removal
-	if time.Now().Sub(h.lastTaintRemoval) <= resetTaintWaitTimeAfterDuration {
+	if time.Since(h.lastTaintRemoval) <= resetTaintWaitTimeAfterDuration {
 		h.currentTaintWaitTime *= 2
 		if h.currentTaintWaitTime > maxTaintWaitTime {
 			h.currentTaintWaitTime = maxTaintWaitTime

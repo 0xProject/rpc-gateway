@@ -1,4 +1,4 @@
-name: Test
+name: golang
 on:
   push:
     branches:
@@ -19,9 +19,9 @@ jobs:
             ~/.cache/go-build
           key: cache-${{ hashFiles('**/go.sum') }}
       - name: Start testing dependencies
-        run: docker-compose up -d 
+        run: docker-compose up -d
       - name: Run tests
-        run: go test -v
+        run: go test -v ./pkg/...
       - name: Print out docker containers' logs
         if: always()
         run: docker-compose logs

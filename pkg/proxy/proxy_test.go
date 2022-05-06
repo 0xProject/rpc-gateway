@@ -1,4 +1,4 @@
-package main
+package proxy
 
 import (
 	"bytes"
@@ -14,9 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-func createTestRpcGatewayConfig() RPCGatewayConfig {
-	return RPCGatewayConfig{
-		Metrics: MetricsConfig{},
+func createConfig() Config {
+	return Config{
 		Proxy: ProxyConfig{
 			AllowedNumberOfRetriesPerTarget: 3,
 			AllowedNumberOfReroutes:         1,
@@ -38,24 +37,24 @@ func createTestRpcGatewayConfig() RPCGatewayConfig {
 func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad Request", http.StatusInternalServerError)
 	}))
-	defer fakeRpc1Server.Close()
+	defer fakeRPC1Server.Close()
 
-	fakeRpc2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fakeRPC2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
 		w.Write(body)
 	}))
-	defer fakeRpc2Server.Close()
+	defer fakeRPC2Server.Close()
 
-	rpcGatewayConfig := createTestRpcGatewayConfig()
+	rpcGatewayConfig := createConfig()
 	rpcGatewayConfig.Targets = []TargetConfig{
 		{
 			Name: "Server1",
 			Connection: TargetConfigConnection{
 				HTTP: TargetConnectionHTTP{
-					URL: fakeRpc1Server.URL,
+					URL: fakeRPC1Server.URL,
 				},
 			},
 		},
@@ -63,7 +62,7 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 			Name: "Server2",
 			Connection: TargetConfigConnection{
 				HTTP: TargetConnectionHTTP{
-					URL: fakeRpc2Server.URL,
+					URL: fakeRPC2Server.URL,
 				},
 			},
 		},
@@ -76,7 +75,7 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
 	// the failoverProxy should automatically reroute the request to the second RPC Server by itself
-	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest("POST", "/", requestBody)
@@ -104,22 +103,22 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
 	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Service not available", http.StatusServiceUnavailable)
 	}))
-	defer fakeRpc1Server.Close()
-	fakeRpc2Server := httptest.NewServer(&responder{
+	defer fakeRPC1Server.Close()
+	fakeRPC2Server := httptest.NewServer(&responder{
 		value:     []byte(""),
 		onRequest: func(r *http.Request) {},
 	})
-	defer fakeRpc2Server.Close()
-	rpcGatewayConfig := createTestRpcGatewayConfig()
+	defer fakeRPC2Server.Close()
+	rpcGatewayConfig := createConfig()
 	rpcGatewayConfig.Targets = []TargetConfig{
 		{
 			Name: "Server1",
 			Connection: TargetConfigConnection{
 				HTTP: TargetConnectionHTTP{
-					URL: fakeRpc1Server.URL,
+					URL: fakeRPC1Server.URL,
 				},
 			},
 		},
@@ -127,7 +126,7 @@ func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
 			Name: "Server2",
 			Connection: TargetConfigConnection{
 				HTTP: TargetConnectionHTTP{
-					URL: fakeRpc2Server.URL,
+					URL: fakeRPC2Server.URL,
 				},
 			},
 		},
@@ -142,7 +141,7 @@ func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -165,21 +164,21 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 
 	var receivedBody, receivedHeaderContentEncoding, receivedHeaderContentLength string
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
 		receivedHeaderContentLength = r.Header.Get("Content-Length")
 		body, _ := ioutil.ReadAll(r.Body)
 		receivedBody = string(body)
 		w.Write([]byte("OK"))
 	}))
-	defer fakeRpc1Server.Close()
-	rpcGatewayConfig := createTestRpcGatewayConfig()
+	defer fakeRPC1Server.Close()
+	rpcGatewayConfig := createConfig()
 	rpcGatewayConfig.Targets = []TargetConfig{
 		{
 			Name: "Server1",
 			Connection: TargetConfigConnection{
 				HTTP: TargetConnectionHTTP{
-					URL: fakeRpc1Server.URL,
+					URL: fakeRPC1Server.URL,
 				},
 			},
 		},
@@ -194,7 +193,7 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
 
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
@@ -236,19 +235,19 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 
 	var receivedHeaderContentEncoding string
 	var receivedBody []byte
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
 		receivedBody, _ = ioutil.ReadAll(r.Body)
 		w.Write([]byte("OK"))
 	}))
-	defer fakeRpc1Server.Close()
-	rpcGatewayConfig := createTestRpcGatewayConfig()
+	defer fakeRPC1Server.Close()
+	rpcGatewayConfig := createConfig()
 	rpcGatewayConfig.Targets = []TargetConfig{
 		{
 			Name: "Server1",
 			Connection: TargetConfigConnection{
 				HTTP: TargetConnectionHTTP{
-					URL:         fakeRpc1Server.URL,
+					URL:         fakeRPC1Server.URL,
 					Compression: true,
 				},
 			},
@@ -264,7 +263,7 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
 
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
@@ -297,7 +296,7 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	g.Write([]byte(`{"body": "content"}`))
 	g.Close()
 
-	if bytes.Compare(receivedBody, wantBody.Bytes()) != 0 {
+	if !bytes.Equal(receivedBody, wantBody.Bytes()) {
 		t.Errorf("the proxy didn't keep the body as is when forwarding gzipped body to the target.")
 	}
 }
@@ -305,18 +304,18 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.T) {
 	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 
-	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond) // The RPC Provider takes 100ms to reply
 		w.Write([]byte("OK"))
 	}))
-	defer fakeRpc1Server.Close()
-	rpcGatewayConfig := createTestRpcGatewayConfig()
+	defer fakeRPC1Server.Close()
+	rpcGatewayConfig := createConfig()
 	rpcGatewayConfig.Targets = []TargetConfig{
 		{
 			Name: "Server1",
 			Connection: TargetConfigConnection{
 				HTTP: TargetConnectionHTTP{
-					URL: fakeRpc1Server.URL,
+					URL: fakeRPC1Server.URL,
 				},
 			},
 		},
@@ -328,7 +327,7 @@ func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewHTTPFailoverProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
 
 	req, err := http.NewRequest("POST", "/", bytes.NewBufferString(`{}`))
 	if err != nil {
@@ -359,7 +358,7 @@ func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.
 	handler.ServeHTTP(rr, req)
 
 	rollingWindow := healthcheckManager.GetRollingWindowByName("Server1")
-	if len(rollingWindow.window) != 1 {
+	if len(rollingWindow.Window()) != 1 {
 		t.Errorf("the proxy observed a canceled request while it shouldn't")
 	}
 }

@@ -1,21 +1,9 @@
-package main
+package proxy
 
 import (
 	"net/url"
 	"time"
 )
-
-type MetricsConfig struct {
-	Port string `yaml:"port"`
-}
-
-type ProxyConfig struct {
-	Port                            string        `yaml:"port"`
-	AllowedNumberOfRetriesPerTarget uint          `yaml:"allowedNumberOfRetriesPerTarget"`
-	AllowedNumberOfReroutes         uint          `yaml:"allowedNumberOfReroutes"`
-	RetryDelay                      time.Duration `yaml:"retryDelay"`
-	UpstreamTimeout                 time.Duration `yaml:"upstreamTimeout"`
-}
 
 type HealthCheckConfig struct {
 	Interval         time.Duration `yaml:"interval"`
@@ -30,6 +18,14 @@ type HealthCheckConfig struct {
 
 	RollingWindowSize             int     `yaml:"rollingWindowSize"`
 	RollingWindowFailureThreshold float64 `yaml:"rollingWindowFailureThreshold"`
+}
+
+type ProxyConfig struct { // nolint:revive
+	Port                            string        `yaml:"port"`
+	AllowedNumberOfRetriesPerTarget uint          `yaml:"allowedNumberOfRetriesPerTarget"`
+	AllowedNumberOfReroutes         uint          `yaml:"allowedNumberOfReroutes"`
+	RetryDelay                      time.Duration `yaml:"retryDelay"`
+	UpstreamTimeout                 time.Duration `yaml:"upstreamTimeout"`
 }
 
 type TargetConnectionHTTP struct {
@@ -50,9 +46,10 @@ func (t *TargetConfig) GetParsedHTTPURL() (*url.URL, error) {
 	return url.Parse(t.Connection.HTTP.URL)
 }
 
-type RPCGatewayConfig struct {
-	Metrics      MetricsConfig     `yaml:"metrics"`
-	Proxy        ProxyConfig       `yaml:"proxy"`
-	HealthChecks HealthCheckConfig `yaml:"healthChecks"`
-	Targets      []TargetConfig    `yaml:"targets"`
+// This struct is temporary. It's about to keep the input interface clean and simple.
+//
+type Config struct {
+	Proxy        ProxyConfig
+	Targets      []TargetConfig
+	HealthChecks HealthCheckConfig
 }
