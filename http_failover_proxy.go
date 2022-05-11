@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 )
 
@@ -22,12 +24,52 @@ type HTTPFailoverProxy struct {
 	gatewayConfig      RPCGatewayConfig
 	targets            []*HTTPTarget
 	healthcheckManager *HealthcheckManager
+
+	metricResponseTime   *prometheus.HistogramVec
+	metricRequestErrors  *prometheus.CounterVec
+	metricResponseStatus *prometheus.CounterVec
 }
 
 func NewHTTPFailoverProxy(config RPCGatewayConfig, healthCheckManager *HealthcheckManager) *HTTPFailoverProxy {
 	proxy := &HTTPFailoverProxy{
 		gatewayConfig:      config,
 		healthcheckManager: healthCheckManager,
+		metricResponseTime: promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name: "zeroex_rpc_gateway_request_duration_seconds",
+				Help: "Histogram of response time for Gateway in seconds",
+				Buckets: []float64{
+					.005,
+					.01,
+					.025,
+					.05,
+					.1,
+					.25,
+					.5,
+					1,
+					2.5,
+					5,
+					10,
+				},
+			}, []string{
+				"provider",
+				"method",
+			}),
+		metricRequestErrors: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "zeroex_rpc_gateway_request_errors_handled_total",
+				Help: "The total number of request errors handled by gateway",
+			}, []string{
+				"provider",
+				"type",
+			}),
+		metricResponseStatus: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "zeroex_rpc_gateway_target_response_status_total",
+			Help: "Total number of responses with a statuscode label",
+		}, []string{
+			"provider",
+			"status_code",
+		}),
 	}
 
 	for index, target := range config.Targets {
@@ -41,7 +83,7 @@ func NewHTTPFailoverProxy(config RPCGatewayConfig, healthCheckManager *Healthche
 
 func (h *HTTPFailoverProxy) doModifyResponse(config TargetConfig) func(*http.Response) error {
 	return func(resp *http.Response) error {
-		responseStatus.WithLabelValues(config.Name, strconv.Itoa(resp.StatusCode)).Inc()
+		h.metricResponseStatus.WithLabelValues(config.Name, strconv.Itoa(resp.StatusCode)).Inc()
 
 		switch {
 		// Here's the thing. A different provider may response with a
@@ -100,7 +142,7 @@ func (h *HTTPFailoverProxy) doErrorHandler(proxy *httputil.ReverseProxy, config 
 		zap.L().Warn("handling a failed request", zap.String("provider", config.Name), zap.Error(e))
 		h.healthcheckManager.ObserveFailure(config.Name)
 		if retries < h.gatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget {
-			requestErrorsHandled.WithLabelValues(config.Name, "retry").Inc()
+			h.metricRequestErrors.WithLabelValues(config.Name, "retry").Inc()
 			// we add a configurable delay before resending request
 			//
 			<-time.After(h.gatewayConfig.Proxy.RetryDelay)
@@ -112,7 +154,7 @@ func (h *HTTPFailoverProxy) doErrorHandler(proxy *httputil.ReverseProxy, config 
 		}
 
 		// route the request to a different target
-		requestErrorsHandled.WithLabelValues(config.Name, "rerouted").Inc()
+		h.metricRequestErrors.WithLabelValues(config.Name, "rerouted").Inc()
 		reroutes := GetReroutesFromContext(r)
 		visitedTargets := GetVisitedTargetsFromContext(r)
 		ctx := context.WithValue(r.Context(), Reroutes, reroutes+1)
@@ -176,7 +218,7 @@ func (h *HTTPFailoverProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if reroutes > h.gatewayConfig.Proxy.AllowedNumberOfReroutes {
 		targetName := GetTargetNameFromContext(r)
 		zap.L().Warn("request reached maximum reroutes", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
-		requestErrorsHandled.WithLabelValues(targetName, "failure").Inc()
+		h.metricRequestErrors.WithLabelValues(targetName, "failure").Inc()
 
 		http.Error(w, "Service not available", http.StatusServiceUnavailable)
 		return
@@ -189,7 +231,7 @@ func (h *HTTPFailoverProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		peer.Proxy.ServeHTTP(w, r)
 		duration := time.Since(start)
-		responseTimeHistogram.WithLabelValues(peer.Config.Name, r.Method).Observe(duration.Seconds())
+		h.metricResponseTime.WithLabelValues(peer.Config.Name, r.Method).Observe(duration.Seconds())
 		return
 	}
 

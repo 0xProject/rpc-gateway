@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func createTestRpcGatewayConfig() RPCGatewayConfig {
@@ -34,6 +36,8 @@ func createTestRpcGatewayConfig() RPCGatewayConfig {
 }
 
 func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
 	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad Request", http.StatusInternalServerError)
 	}))
@@ -98,6 +102,8 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 }
 
 func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
 	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Service not available", http.StatusServiceUnavailable)
 	}))
@@ -156,6 +162,8 @@ func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
 }
 
 func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
 	var receivedBody, receivedHeaderContentEncoding, receivedHeaderContentLength string
 	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
@@ -224,6 +232,8 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 }
 
 func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
 	var receivedHeaderContentEncoding string
 	var receivedBody []byte
 	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -293,6 +303,8 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 }
 
 func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
 	fakeRpc1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond) // The RPC Provider takes 100ms to reply
 		w.Write([]byte("OK"))

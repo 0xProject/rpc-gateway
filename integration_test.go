@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	toxiproxy "github.com/Shopify/toxiproxy/client"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -60,6 +61,8 @@ type TestUrl struct {
 }
 
 func TestRpcGatewayFailover(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
 	// initial setup
 	logger, _ := zap.NewDevelopment()
 	zap.ReplaceGlobals(logger)

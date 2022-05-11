@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 )
 
@@ -31,21 +33,88 @@ type HealthcheckManager struct {
 
 	requestFailureThreshold   float64
 	rollingWindowTaintEnabled bool
+
+	metricRPCProviderInfo        *prometheus.GaugeVec
+	metricRPCProviderStatus      *prometheus.GaugeVec
+	metricResponseTime           *prometheus.HistogramVec
+	metricRPCProviderBlockNumber *prometheus.GaugeVec
+	metricRPCProviderGasLimit    *prometheus.GaugeVec
 }
 
 func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager {
 	healthCheckers := []Healthchecker{}
 	rollingWindows := []*RollingWindowWrapper{}
 
+	healthcheckManager := &HealthcheckManager{
+		requestFailureThreshold:   config.Config.RollingWindowFailureThreshold,
+		rollingWindowTaintEnabled: config.Config.RollingWindowTaintEnabled,
+		metricRPCProviderInfo: promauto.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "zeroex_rpc_gateway_provider_info",
+				Help: "Gas limit of a given provider",
+			}, []string{
+				"index",
+				"provider",
+			}),
+		metricRPCProviderStatus: promauto.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "zeroex_rpc_gateway_provider_status",
+				Help: "Current status of a given provider by type. Type can be either healthy or tainted.",
+			}, []string{
+				"provider",
+				"type",
+			}),
+		metricResponseTime: promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name: "zeroex_rpc_gateway_healthcheck_response_duration_seconds",
+				Help: "Histogram of response time for Gateway Healthchecker in seconds",
+				Buckets: []float64{
+					.005,
+					.01,
+					.025,
+					.05,
+					.1,
+					.25,
+					.5,
+					1,
+					2.5,
+					5,
+					10,
+				},
+			}, []string{
+				"provider",
+				"method",
+			}),
+		metricRPCProviderBlockNumber: promauto.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "zeroex_rpc_gateway_provider_block_number",
+				Help: "Block number of a given provider",
+			}, []string{
+				"provider",
+			}),
+		metricRPCProviderGasLimit: promauto.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "zeroex_rpc_gateway_provider_gasLimit_number",
+				Help: "Gas limit of a given provider",
+			}, []string{
+				"provider",
+			}),
+	}
+
 	for _, target := range config.Targets {
-		healthchecker, err := NewHealthchecker(RPCHealthcheckerConfig{
-			URL:              target.Connection.HTTP.URL,
-			Name:             target.Name,
-			Interval:         config.Config.Interval,
-			Timeout:          config.Config.Timeout,
-			FailureThreshold: config.Config.FailureThreshold,
-			SuccessThreshold: config.Config.SuccessThreshold,
-		})
+		healthchecker, err := NewHealthchecker(
+			RPCHealthcheckerConfig{
+				URL:              target.Connection.HTTP.URL,
+				Name:             target.Name,
+				Interval:         config.Config.Interval,
+				Timeout:          config.Config.Timeout,
+				FailureThreshold: config.Config.FailureThreshold,
+				SuccessThreshold: config.Config.SuccessThreshold,
+			})
+
+		healthchecker.SetMetric(MetricBlockNumber, healthcheckManager.metricRPCProviderBlockNumber)
+		healthchecker.SetMetric(MetricGasLimit, healthcheckManager.metricRPCProviderBlockNumber)
+		healthchecker.SetMetric(MetricResponseTime, healthcheckManager.metricResponseTime)
 
 		if err != nil {
 			panic(err)
@@ -55,12 +124,10 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 		rollingWindows = append(rollingWindows, NewRollingWindowWrapper(target.Name, config.Config.RollingWindowSize))
 	}
 
-	return &HealthcheckManager{
-		healthcheckers:            healthCheckers,
-		rollingWindows:            rollingWindows,
-		requestFailureThreshold:   config.Config.RollingWindowFailureThreshold,
-		rollingWindowTaintEnabled: config.Config.RollingWindowTaintEnabled,
-	}
+	healthcheckManager.healthcheckers = healthCheckers
+	healthcheckManager.rollingWindows = rollingWindows
+
+	return healthcheckManager
 }
 
 func (h *HealthcheckManager) runLoop(ctx context.Context) error {
@@ -104,14 +171,14 @@ func (h *HealthcheckManager) reportStatusMetrics() {
 		if healthchecker.IsTainted() {
 			tainted = 1
 		}
-		rpcProviderStatus.WithLabelValues(healthchecker.Name(), "healthy").Set(float64(healthy))
-		rpcProviderStatus.WithLabelValues(healthchecker.Name(), "tainted").Set(float64(tainted))
+		h.metricRPCProviderStatus.WithLabelValues(healthchecker.Name(), "healthy").Set(float64(healthy))
+		h.metricRPCProviderStatus.WithLabelValues(healthchecker.Name(), "tainted").Set(float64(tainted))
 	}
 }
 
 func (h *HealthcheckManager) Start(ctx context.Context) error {
 	for index, healthChecker := range h.healthcheckers {
-		rpcProviderInfo.WithLabelValues(strconv.Itoa(index), healthChecker.Name()).Set(1)
+		h.metricRPCProviderInfo.WithLabelValues(strconv.Itoa(index), healthChecker.Name()).Set(1)
 		go healthChecker.Start(ctx)
 	}
 

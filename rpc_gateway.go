@@ -10,6 +10,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mwitkow/go-conntrack"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
@@ -18,7 +21,8 @@ type RPCGateway struct {
 	httpFailoverProxy  *HTTPFailoverProxy
 	healthcheckManager *HealthcheckManager
 
-	server *http.Server
+	server                  *http.Server
+	metricRequestsProcessed *prometheus.CounterVec
 }
 
 func (r *RPCGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -61,16 +65,15 @@ func (r *RPCGateway) GetCurrentTarget() string {
 }
 
 func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
-	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
-		Targets: config.Targets,
-		Config:  config.HealthChecks,
-	})
+	healthcheckManager := NewHealthcheckManager(
+		HealthcheckManagerConfig{
+			Targets: config.Targets,
+			Config:  config.HealthChecks,
+		})
 	httpFailoverProxy := NewHTTPFailoverProxy(config, healthcheckManager)
 
 	r := mux.NewRouter()
 	r.Use(LoggingMiddleware())
-	r.PathPrefix("/").Handler(httpFailoverProxy)
-	r.PathPrefix("").Handler(httpFailoverProxy)
 
 	srv := &http.Server{
 		Handler:      r,
@@ -78,11 +81,26 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 		ReadTimeout:  15 * time.Second,
 	}
 
-	return &RPCGateway{
+	gateway := &RPCGateway{
 		httpFailoverProxy:  httpFailoverProxy,
 		healthcheckManager: healthcheckManager,
 		server:             srv,
+		metricRequestsProcessed: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "zeroex_rpc_gateway_requests_total",
+				Help: "The total number of processed requests by gateway",
+			}, []string{
+				"code",
+				"method",
+			}),
 	}
+
+	handler := promhttp.InstrumentHandlerCounter(gateway.metricRequestsProcessed, httpFailoverProxy)
+
+	r.PathPrefix("/").Handler(handler)
+	r.PathPrefix("").Handler(handler)
+
+	return gateway
 }
 
 func NewRPCGatewayFromConfigFile(path string) (*RPCGatewayConfig, error) {

@@ -3,34 +3,30 @@ package main
 import (
 	"net/http"
 	"runtime/debug"
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
 )
 
-type responseWriter struct {
+type HTTPStatusRecorder struct {
 	http.ResponseWriter
+
 	status      int
 	wroteHeader bool
 }
 
-func wrapResponseWriter(w http.ResponseWriter) *responseWriter {
-	return &responseWriter{ResponseWriter: w}
+func NewHTTPStatusRecorder(w http.ResponseWriter) *HTTPStatusRecorder {
+	return &HTTPStatusRecorder{ResponseWriter: w}
 }
 
-func (rw *responseWriter) Status() int {
-	return rw.status
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	if rw.wroteHeader {
+func (r *HTTPStatusRecorder) WriteHeader(status int) {
+	if r.wroteHeader {
 		return
 	}
 
-	rw.status = code
-	rw.ResponseWriter.WriteHeader(code)
-	rw.wroteHeader = true
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+	r.wroteHeader = true
 
 	return
 }
@@ -48,10 +44,14 @@ func LoggingMiddleware() func(http.Handler) http.Handler {
 			}()
 
 			start := time.Now()
-			wrapped := wrapResponseWriter(w)
-			next.ServeHTTP(wrapped, r)
-			requestsProcessed.WithLabelValues(strconv.Itoa(wrapped.status)).Inc()
-			zap.L().Info("processed request", zap.String("path", r.URL.EscapedPath()), zap.String("method", r.Method), zap.Int("statusCode", wrapped.status), zap.Int64("duration", int64(time.Since(start))))
+			recorder := NewHTTPStatusRecorder(w)
+			next.ServeHTTP(recorder, r)
+
+			zap.L().Info("processed request",
+				zap.String("path", r.URL.EscapedPath()),
+				zap.String("method", r.Method),
+				zap.Int("statusCode", recorder.status),
+				zap.Int64("duration", int64(time.Since(start))))
 		}
 
 		return http.HandlerFunc(fn)
