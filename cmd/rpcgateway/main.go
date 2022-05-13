@@ -8,6 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/0xProject/rpc-gateway/pkg/metrics"
+	"github.com/0xProject/rpc-gateway/pkg/rpcgateway"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -40,16 +42,16 @@ func main() {
 	// Initialize config
 	configFileLocation := flag.String("config", "./config.yml", "path to rpc gateway config file")
 	flag.Parse()
-	config, err := NewRPCGatewayFromConfigFile(*configFileLocation)
+	config, err := rpcgateway.NewRPCGatewayFromConfigFile(*configFileLocation)
 	if err != nil {
 		logger.Fatal("failed to get config", zap.Error(err))
 	}
 
 	// start gateway
-	rpcGateway := NewRPCGateway(*config)
+	rpcGateway := rpcgateway.NewRPCGateway(*config)
 
 	// start healthz and metrics server
-	metricsServer := NewMetricsServer(config.Metrics)
+	metricsServer := metrics.NewServer(config.Metrics)
 	g.Go(func() error {
 		return metricsServer.Start()
 	})

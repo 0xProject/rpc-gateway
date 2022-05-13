@@ -1,21 +1,22 @@
-FROM golang:1.18-alpine3.14 as builder
+FROM golang:1.18-alpine3.15 AS builder
 
-RUN apk update && apk add git build-base
+RUN apk add --update-cache \
+        git \
+        build-base
 
 WORKDIR /src
+COPY . .
 
-ADD . ./
+RUN go build -o rpc-gateway cmd/rpcgateway/main.go
 
-RUN go build
+FROM alpine:3.15
 
-# final image
-FROM alpine:3.13
+RUN apk add --update-cache --no-cache \
+        ca-certificates
 
-RUN apk update && apk add ca-certificates --no-cache
-
-RUN mkdir -p /app
-    
-COPY --from=builder /src/rpc-gateway /app/rpc-gateway
+COPY --from=builder /src/rpc-gateway /app/
 
 VOLUME ["/app"]
+
+USER nobody
 CMD ["/app/rpc-gateway"]

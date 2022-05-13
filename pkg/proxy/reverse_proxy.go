@@ -1,4 +1,4 @@
-package main
+package proxy
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 	//
 	// I want to call it out, because it's damn smart.
 	//
-	ctx := context.WithValue(r.Context(), "bodybuf", &buf)
+	ctx := context.WithValue(r.Context(), "bodybuf", &buf) // nolint:revive,staticcheck
 
 	// WithContext creates a shallow copy. It's highly important to
 	// override underlying memory pointed by pointer.
@@ -91,7 +91,7 @@ func doGunzip(r *http.Request, config TargetConfig) (io.Reader, error) {
 	return body, nil
 }
 
-func NewPathPreservingProxy(targetConfig TargetConfig, proxyConfig ProxyConfig) (*httputil.ReverseProxy, error) {
+func NewReverseProxy(targetConfig TargetConfig, config Config) (*httputil.ReverseProxy, error) {
 	target, err := url.Parse(targetConfig.Connection.HTTP.URL)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot parse url")
@@ -131,7 +131,7 @@ func NewPathPreservingProxy(targetConfig TargetConfig, proxyConfig ProxyConfig) 
 		IdleConnTimeout:       30 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		ResponseHeaderTimeout: proxyConfig.UpstreamTimeout,
+		ResponseHeaderTimeout: config.Proxy.UpstreamTimeout,
 	}
 
 	conntrack.PreRegisterDialerMetrics(targetConfig.Name)

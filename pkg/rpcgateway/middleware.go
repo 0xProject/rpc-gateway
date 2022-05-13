@@ -1,4 +1,4 @@
-package main
+package rpcgateway
 
 import (
 	"net/http"
@@ -27,8 +27,6 @@ func (r *HTTPStatusRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
 	r.wroteHeader = true
-
-	return
 }
 
 // LoggingMiddleware logs the incoming HTTP request & its duration

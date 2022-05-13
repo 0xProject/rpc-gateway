@@ -1,4 +1,4 @@
-package main
+package rpcgateway
 
 import (
 	"bytes"
@@ -17,10 +17,10 @@ import (
 
 var rpcGatewayConfig = `
 metrics:
-  port: "9090" # port for prometheus metrics, served on /metrics and /
+  port: 9090 # port for prometheus metrics, served on /metrics and /
 
 proxy:
-  port: "3000" # port for RPC gateway
+  port: 3000 # port for RPC gateway
   upstreamTimeout: "200m" # when is a request considered timed out
   allowedNumberOfRetriesPerTarget: 2 # The number of retries within the same RPC target for a single request
   retryDelay: "10ms" # delay between retries
@@ -40,14 +40,14 @@ targets:
   - name: "ToxicAnkr"
     connection:
       http:
-        url: "{{.UrlOne}}"
+        url: "{{ .URLOne }}"
         compression: false
       ws:
         url: ""
   - name: "AnkrTwo"
     connection:
       http:
-        url: "{{.UrlTwo}}"
+        url: "{{ .URLTwo }}"
         compression: false
       ws:
         url: ""
@@ -55,9 +55,9 @@ targets:
 
 var rpcRequestBody = `{"jsonrpc":"2.0","method":"eth_getBlockByHash","params":["0xb3b20624f8f0f86eb50dd04688409e5cea4bd02d700bf6e79e9384d47d6a5a35",true],"id":1}`
 
-type TestUrl struct {
-	UrlOne string
-	UrlTwo string
+type TestURL struct {
+	URLOne string
+	URLTwo string
 }
 
 func TestRpcGatewayFailover(t *testing.T) {
@@ -100,7 +100,7 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	// config string
 	var tpl bytes.Buffer
-	tu := TestUrl{"http://0.0.0.0:9991", "https://rpc.ankr.com/eth"}
+	tu := TestURL{"http://0.0.0.0:9991", "https://rpc.ankr.com/eth"}
 	tmpl, err := template.New("test").Parse(rpcGatewayConfig)
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	fmt.Println("gateway serving from: ", gs.URL)
 
-	req, err := http.NewRequest("POST", gs.URL, bytes.NewBufferString(``))
+	req, _ := http.NewRequest("POST", gs.URL, bytes.NewBufferString(``))
 	req.Header.Set("Content-Type", "application/json")
 	req.ContentLength = int64(len(rpcRequestBody))
 	res, err := gsClient.Do(req)

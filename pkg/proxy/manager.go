@@ -1,10 +1,11 @@
-package main
+package proxy
 
 import (
 	"context"
 	"strconv"
 	"time"
 
+	"github.com/0xProject/rpc-gateway/pkg/rollingwindow"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
@@ -13,18 +14,6 @@ import (
 type HealthcheckManagerConfig struct {
 	Targets []TargetConfig
 	Config  HealthCheckConfig
-}
-
-func NewRollingWindowWrapper(name string, windowSize int) *RollingWindowWrapper {
-	return &RollingWindowWrapper{
-		Name:          name,
-		rollingWindow: NewRollingWindow(windowSize),
-	}
-}
-
-type RollingWindowWrapper struct {
-	rollingWindow *RollingWindow
-	Name          string
 }
 
 type HealthcheckManager struct {
@@ -265,7 +254,7 @@ func (h *HealthcheckManager) GetNextHealthyTargetIndexExcluding(excludedIdx []ui
 	return 0
 }
 
-func (h *HealthcheckManager) GetRollingWindowByName(name string) *RollingWindow {
+func (h *HealthcheckManager) GetRollingWindowByName(name string) *rollingwindow.RollingWindow {
 	for _, wrapper := range h.rollingWindows {
 		if wrapper.Name == name {
 			return wrapper.rollingWindow

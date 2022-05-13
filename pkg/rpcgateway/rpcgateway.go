@@ -1,4 +1,4 @@
-package main
+package rpcgateway
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/0xProject/rpc-gateway/pkg/proxy"
 	"github.com/gorilla/mux"
 	"github.com/mwitkow/go-conntrack"
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,8 +19,9 @@ import (
 )
 
 type RPCGateway struct {
-	httpFailoverProxy  *HTTPFailoverProxy
-	healthcheckManager *HealthcheckManager
+	config             RPCGatewayConfig
+	httpFailoverProxy  *proxy.Proxy
+	healthcheckManager *proxy.HealthcheckManager
 
 	server                  *http.Server
 	metricRequestsProcessed *prometheus.CounterVec
@@ -41,9 +43,9 @@ func (r *RPCGateway) Start(ctx context.Context) error {
 		}
 	}()
 
-	listenAddress := fmt.Sprintf(":%s", r.httpFailoverProxy.gatewayConfig.Proxy.Port)
+	listenAddress := fmt.Sprintf(":%s", r.config.Proxy.Port)
 	zap.L().Info("starting http failover proxy", zap.String("listenAddr", listenAddress))
-	listener, err := net.Listen("tcp", fmt.Sprintf(listenAddress))
+	listener, err := net.Listen("tcp", listenAddress)
 	if err != nil {
 		zap.L().Error("Failed to listen", zap.Error(err))
 	}
@@ -65,12 +67,19 @@ func (r *RPCGateway) GetCurrentTarget() string {
 }
 
 func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
-	healthcheckManager := NewHealthcheckManager(
-		HealthcheckManagerConfig{
+	healthcheckManager := proxy.NewHealthcheckManager(
+		proxy.HealthcheckManagerConfig{
 			Targets: config.Targets,
 			Config:  config.HealthChecks,
 		})
-	httpFailoverProxy := NewHTTPFailoverProxy(config, healthcheckManager)
+	httpFailoverProxy := proxy.NewProxy(
+		proxy.Config{
+			Proxy:        config.Proxy,
+			Targets:      config.Targets,
+			HealthChecks: config.HealthChecks,
+		},
+		healthcheckManager,
+	)
 
 	r := mux.NewRouter()
 	r.Use(LoggingMiddleware())
@@ -82,6 +91,7 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 	}
 
 	gateway := &RPCGateway{
+		config:             config,
 		httpFailoverProxy:  httpFailoverProxy,
 		healthcheckManager: healthcheckManager,
 		server:             srv,

@@ -72,8 +72,3 @@ issues:
         - revive            # naming ain't eazy
         - errcheck
         - ineffassign
-    # TODO
-    # The key name should be embeded into a struct.
-    - path: http_reverse_proxy.go
-      linters:
-        - revive
