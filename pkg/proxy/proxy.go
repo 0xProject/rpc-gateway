@@ -4,21 +4,17 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 )
-
-type HTTPTarget struct {
-	Config TargetConfig
-	Proxy  *httputil.ReverseProxy
-}
 
 type Proxy struct {
 	config             Config
@@ -73,7 +69,9 @@ func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy
 	}
 
 	for index, target := range proxy.config.Targets {
-		if err := proxy.AddTarget(target, uint(index)); err != nil {
+		healthchecker := healthCheckManager.GetTargetByName(target.Name)
+
+		if err := proxy.AddTarget(target, healthchecker, uint(index)); err != nil {
 			panic(err)
 		}
 	}
@@ -130,51 +128,12 @@ func (h *Proxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig
 			return
 		}
 
-		retries := GetRetryFromContext(r)
-
-		// Workaround to reserve request body in ReverseProxy.ErrorHandler see
-		// more here: https://github.com/golang/go/issues/33726
-		//
-		if buf, ok := r.Context().Value("bodybuf").(*bytes.Buffer); ok {
-			r.Body = io.NopCloser(buf)
-		}
-
-		zap.L().Warn("handling a failed request", zap.String("provider", config.Name), zap.Error(e))
-		h.healthcheckManager.ObserveFailure(config.Name)
-		if retries < h.config.Proxy.AllowedNumberOfRetriesPerTarget {
-			h.metricRequestErrors.WithLabelValues(config.Name, "retry").Inc()
-			// we add a configurable delay before resending request
-			//
-			<-time.After(h.config.Proxy.RetryDelay)
-
-			ctx := context.WithValue(r.Context(), Retries, retries+1)
-			proxy.ServeHTTP(w, r.WithContext(ctx))
-
-			return
-		}
-
 		// route the request to a different target
 		h.metricRequestErrors.WithLabelValues(config.Name, "rerouted").Inc()
-		reroutes := GetReroutesFromContext(r)
-		visitedTargets := GetVisitedTargetsFromContext(r)
-		ctx := context.WithValue(r.Context(), Reroutes, reroutes+1)
-
-		// add the current target to the VisitedTargets slice to exclude it when selecting
-		// the next target
-		ctx = context.WithValue(ctx, VisitedTargets, append(visitedTargets, index))
-
-		// adding the targetname in case it errors out and needs to be
-		// used in metrics in ServeHTTP.
-		ctx = context.WithValue(ctx, TargetName, config.Name)
-
-		// reset the number of retries for the next target
-		ctx = context.WithValue(ctx, Retries, 0)
-
-		h.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
 
-func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
+func (h *Proxy) AddTarget(target TargetConfig, healthchecker Healthchecker, index uint) error {
 	proxy, err := NewReverseProxy(target, h.config)
 	if err != nil {
 		return err
@@ -190,8 +149,9 @@ func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
 	h.targets = append(
 		h.targets,
 		&HTTPTarget{
-			Config: target,
-			Proxy:  proxy,
+			Config:        target,
+			Proxy:         proxy,
+			Healthchecker: healthchecker,
 		})
 
 	return nil
@@ -214,24 +174,49 @@ func (h *Proxy) GetNextTargetName() string {
 }
 
 func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	reroutes := GetReroutesFromContext(r)
-	if reroutes > h.config.Proxy.AllowedNumberOfReroutes {
-		targetName := GetTargetNameFromContext(r)
-		zap.L().Warn("request reached maximum reroutes", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
-		h.metricRequestErrors.WithLabelValues(targetName, "failure").Inc()
+	// reroutes := GetReroutesFromContext(r)
+	// if reroutes > h.config.Proxy.AllowedNumberOfReroutes {
+	// 	targetName := GetTargetNameFromContext(r)
+	// 	zap.L().Warn("request reached maximum reroutes", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
+	// 	h.metricRequestErrors.WithLabelValues(targetName, "failure").Inc()
 
-		http.Error(w, "Service not available", http.StatusServiceUnavailable)
-		return
+	// 	http.Error(w, "Service not available", http.StatusServiceUnavailable)
+	// 	return
+	// }
+
+	// visitedTargets := GetVisitedTargetsFromContext(r)
+
+	// peer := h.GetNextTargetExcluding(visitedTargets)
+	// if peer != nil {
+	// 	start := time.Now()
+	// 	peer.Proxy.ServeHTTP(w, r)
+	// 	duration := time.Since(start)
+	// 	h.metricResponseTime.WithLabelValues(peer.Config.Name, r.Method).Observe(duration.Seconds())
+	// 	return
+	// }
+
+	// Here's the thing.
+	// I don't believe we should track visited nodes at all. We should track
+	// healthiness of a backend. It makes things easier as fuck.
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
 	}
 
-	visitedTargets := GetVisitedTargetsFromContext(r)
+	for _, target := range h.targets {
+		if !target.Healthy() {
+			continue
+		}
 
-	peer := h.GetNextTargetExcluding(visitedTargets)
-	if peer != nil {
-		start := time.Now()
-		peer.Proxy.ServeHTTP(w, r)
-		duration := time.Since(start)
-		h.metricResponseTime.WithLabelValues(peer.Config.Name, r.Method).Observe(duration.Seconds())
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		if status := target.Do(w, r); status != 200 {
+
+			fmt.Println("STATUS ", status)
+
+			continue
+		}
+
 		return
 	}
 

@@ -3,16 +3,12 @@ package proxy
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"time"
 
-	"github.com/mwitkow/go-conntrack"
 	"github.com/pkg/errors"
 
 	"go.uber.org/zap"
@@ -47,19 +43,6 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 	}
 
 	r.Body = io.NopCloser(body)
-
-	// Here's an interesting fact. There's no data in buf, until a call
-	// to Read(). With Read() call, it will write data to bytes.Buffer.
-	//
-	// I want to call it out, because it's damn smart.
-	//
-	ctx := context.WithValue(r.Context(), "bodybuf", &buf) // nolint:revive,staticcheck
-
-	// WithContext creates a shallow copy. It's highly important to
-	// override underlying memory pointed by pointer.
-	//
-	r2 := r.WithContext(ctx)
-	*r = *r2
 
 	return nil
 }
@@ -114,27 +97,40 @@ func NewReverseProxy(targetConfig TargetConfig, config Config) (*httputil.Revers
 		zap.L().Debug("request forward", zap.String("URL", r.URL.String()))
 	}
 
-	conntrackDialer := conntrack.NewDialContextFunc(
-		conntrack.DialWithName(targetConfig.Name),
-		conntrack.DialWithTracing(),
-		conntrack.DialWithDialer(&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}),
-	)
-
-	proxy.Transport = &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           conntrackDialer,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       30 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		ResponseHeaderTimeout: config.Proxy.UpstreamTimeout,
+	proxy.Transport = &RetryRoundTrip{
+		Next: http.DefaultTransport,
+		Config: RetryRoundTripConfig{
+			Retries: int(config.Proxy.AllowedNumberOfRetriesPerTarget),
+			Delay:   config.Proxy.RetryDelay,
+		},
+		RetryOn: func(resp *http.Response) bool {
+			// I am dumb and I always expect HTTP 200.
+			//
+			return resp.StatusCode != 200
+		},
 	}
 
-	conntrack.PreRegisterDialerMetrics(targetConfig.Name)
+	// conntrackDialer := conntrack.NewDialContextFunc(
+	// 	conntrack.DialWithName(targetConfig.Name),
+	// 	conntrack.DialWithTracing(),
+	// 	conntrack.DialWithDialer(&net.Dialer{
+	// 		Timeout:   30 * time.Second,
+	// 		KeepAlive: 30 * time.Second,
+	// 	}),
+	// )
+
+	// proxy.Transport = &http.Transport{
+	// 	Proxy:                 http.ProxyFromEnvironment,
+	// 	DialContext:           conntrackDialer,
+	// 	ForceAttemptHTTP2:     true,
+	// 	MaxIdleConns:          100,
+	// 	IdleConnTimeout:       30 * time.Second,
+	// 	TLSHandshakeTimeout:   10 * time.Second,
+	// 	ExpectContinueTimeout: 1 * time.Second,
+	// 	ResponseHeaderTimeout: config.Proxy.UpstreamTimeout,
+	// }
+
+	// conntrack.PreRegisterDialerMetrics(targetConfig.Name)
 
 	return proxy, nil
 }
