@@ -25,8 +25,6 @@ type RPCGateway struct {
 
 	server                  *http.Server
 	metricRequestsProcessed *prometheus.CounterVec
-	metricRequestSize       *prometheus.HistogramVec
-	metricResponseSize      *prometheus.HistogramVec
 }
 
 func (r *RPCGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -105,45 +103,9 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 				"code",
 				"method",
 			}),
-		metricRequestSize: promauto.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name: "zeroex_rpc_gateway_request_size_bytes",
-				Help: "Histogram of HTTP request sizes",
-				Buckets: []float64{
-					128,
-					256,
-					1024,
-					2048,
-					4096,
-					8192,
-				},
-			}, []string{
-				"code",
-				"method",
-			},
-		),
-		metricResponseSize: promauto.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name: "zeroex_rpc_gateway_response_size_bytes",
-				Help: "Histogram of HTTP response sizes",
-				Buckets: []float64{
-					128,
-					256,
-					1024,
-					2048,
-					4096,
-					8192,
-				},
-			}, []string{
-				"code",
-				"method",
-			},
-		),
 	}
 
-	handler := promhttp.InstrumentHandlerCounter(gateway.metricRequestsProcessed,
-		promhttp.InstrumentHandlerRequestSize(gateway.metricRequestSize,
-			promhttp.InstrumentHandlerResponseSize(gateway.metricResponseSize, httpFailoverProxy)))
+	handler := promhttp.InstrumentHandlerCounter(gateway.metricRequestsProcessed, httpFailoverProxy)
 
 	r.PathPrefix("/").Handler(handler)
 	r.PathPrefix("").Handler(handler)
