@@ -102,7 +102,7 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 			})
 
 		healthchecker.SetMetric(MetricBlockNumber, healthcheckManager.metricRPCProviderBlockNumber)
-		healthchecker.SetMetric(MetricGasLimit, healthcheckManager.metricRPCProviderBlockNumber)
+		healthchecker.SetMetric(MetricGasLimit, healthcheckManager.metricRPCProviderGasLimit)
 		healthchecker.SetMetric(MetricResponseTime, healthcheckManager.metricResponseTime)
 
 		if err != nil {
