@@ -124,15 +124,3 @@ image to AWS ECR. In order to trigger a deployment to Kubernetes, you have to fo
 
 - Trigger [deploy workflow](https://github.com/0xProject/rpc-gateway/actions/workflows/deploy.yaml).
 - Merge pull request created by deploy worklow in [0x-main-infra](https://github.com/0xProject/0x-main-infra).
-
-
-## TODOs
-
-- [x] Add geth_override eth_call to healthchecks ( this one [here](./contracts/GasLeft.sol "here") )
-- [ ] Encapsulate into `middleware` `healthchecker` packages.
-- [ ] Add Blockchain aware caching.
-- [ ] Handle taints better?
-- [ ] BlockNumber divergence automatic handling.
-- [ ] Expand configuration options by exposing all reverseproxy settings
-- [ ] Add defaults to YAML config.
-- [ ] Pass logger around instead of using a global one.
