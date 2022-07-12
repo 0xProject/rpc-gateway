@@ -13,7 +13,6 @@ import (
 	"github.com/mwitkow/go-conntrack"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
@@ -100,15 +99,15 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 				Name: "zeroex_rpc_gateway_requests_total",
 				Help: "The total number of processed requests by gateway",
 			}, []string{
-				"code",
+				"status_code",
 				"method",
 			}),
 	}
 
-	handler := promhttp.InstrumentHandlerCounter(gateway.metricRequestsProcessed, httpFailoverProxy)
+	r.Use(RequestCounters(gateway.metricRequestsProcessed))
 
-	r.PathPrefix("/").Handler(handler)
-	r.PathPrefix("").Handler(handler)
+	r.PathPrefix("/").Handler(httpFailoverProxy)
+	r.PathPrefix("").Handler(httpFailoverProxy)
 
 	return gateway
 }

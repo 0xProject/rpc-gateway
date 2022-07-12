@@ -1,10 +1,12 @@
 package rpcgateway
 
 import (
+	"fmt"
 	"net/http"
 	"runtime/debug"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -52,6 +54,23 @@ func LoggingMiddleware() func(http.Handler) http.Handler {
 				zap.Int64("duration", int64(time.Since(start))))
 		}
 
+		return http.HandlerFunc(fn)
+	}
+}
+
+func RequestCounters(c *prometheus.CounterVec) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			recorder := NewHTTPStatusRecorder(w)
+			next.ServeHTTP(recorder, r)
+
+			labels := prometheus.Labels{
+				"status_code": fmt.Sprintf("%d", recorder.status),
+				"method":      r.Method,
+			}
+
+			c.With(labels).Inc()
+		}
 		return http.HandlerFunc(fn)
 	}
 }
