@@ -66,7 +66,7 @@ metrics:
 proxy:
   port: "3000" # port for RPC gateway
   upstreamTimeout: "1s" # when is a request considered timed out
-  
+
   # The number of retries within the same RPC target for a single request
   allowedNumberOfRetriesPerTarget: 2
   retryDelay: "10ms" # delay between retries
@@ -109,13 +109,22 @@ Taints are a way for the `HealthcheckManager` to mark a node as unhealthy even t
 
 Currently taint clearing is not implemented yet.
 
-## Build Docker image
+## Build Docker images locally
 We should build multi-arch image so the image can be run in both `arm64` and `amd64` arch.
 
 ```zsh
 TAG=0.0.1
 docker buildx build --platform linux/amd64,linux/arm64 -t 883408475785.dkr.ecr.us-east-1.amazonaws.com/rpc-gateway:${TAG} --push .
 ```
+
+## Deployment
+
+Upon merge to master branch, Github action kicks in to build and push Docker
+image to AWS ECR. In order to trigger a deployment to Kubernetes, you have to follow the steps:
+
+- Trigger [deploy workflow](https://github.com/0xProject/rpc-gateway/actions/workflows/deploy.yaml).
+- Merge pull request created by deploy worklow in [0x-main-infra](https://github.com/0xProject/0x-main-infra).
+
 
 ## TODOs
 
