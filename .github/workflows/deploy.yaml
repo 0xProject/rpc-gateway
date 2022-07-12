@@ -8,7 +8,14 @@ on:
       environment:
         type: choice
         options:
-        - rpc-gateway-polygon
+          - rpc-gateway-avalanche
+          - rpc-gateway-bsc
+          - rpc-gateway-celo
+          - rpc-gateway-ethereum
+          - rpc-gateway-ethereum-staging
+          - rpc-gateway-fantom
+          - rpc-gateway-optimism
+          - rpc-gateway-polygon
         required: true
 
 env:
