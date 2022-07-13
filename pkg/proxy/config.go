@@ -39,11 +39,29 @@ type TargetConfigConnection struct {
 
 type TargetConfig struct {
 	Name       string                 `yaml:"name"`
+	Backup     *bool                  `yaml:"backup,omitempty"`
+	Weight     *int                   `yaml:"weight,omitempty"`
 	Connection TargetConfigConnection `yaml:"connection"`
 }
 
-func (t *TargetConfig) GetParsedHTTPURL() (*url.URL, error) {
-	return url.Parse(t.Connection.HTTP.URL)
+func (target *TargetConfig) IsBackup() bool {
+	if target.Backup == nil {
+		return false
+	}
+
+	return *target.Backup
+}
+
+func (target *TargetConfig) GetWeight() int {
+	if target.Weight == nil || *target.Weight < 0 {
+		return 100
+	}
+
+	return *target.Weight
+}
+
+func (target *TargetConfig) GetParsedHTTPURL() (*url.URL, error) {
+	return url.Parse(target.Connection.HTTP.URL)
 }
 
 // This struct is temporary. It's about to keep the input interface clean and simple.

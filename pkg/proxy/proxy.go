@@ -24,6 +24,8 @@ type Proxy struct {
 	config             Config
 	targets            []*HTTPTarget
 	healthcheckManager *HealthcheckManager
+	defaultPool        *WeightedRoundRobin
+	backupPool         *WeightedRoundRobin
 
 	metricResponseTime   *prometheus.HistogramVec
 	metricRequestErrors  *prometheus.CounterVec
@@ -70,6 +72,8 @@ func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy
 			"provider",
 			"status_code",
 		}),
+		defaultPool: NewWeightedRoundRobin(),
+		backupPool:  NewWeightedRoundRobin(),
 	}
 
 	for index, target := range proxy.config.Targets {
@@ -194,6 +198,12 @@ func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
 			Proxy:  proxy,
 		})
 
+	if target.IsBackup() {
+		h.backupPool.Add(target, target.GetWeight())
+	} else {
+		h.defaultPool.Add(target, target.GetWeight())
+	}
+
 	return nil
 }
 
@@ -213,25 +223,43 @@ func (h *Proxy) GetNextTargetName() string {
 	return h.GetNextTarget().Config.Name
 }
 
+func (h *Proxy) IsError(status int) bool {
+	return status == http.StatusTooManyRequests || status >= http.StatusInternalServerError
+}
+
 func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	reroutes := GetReroutesFromContext(r)
-	if reroutes > h.config.Proxy.AllowedNumberOfReroutes {
-		targetName := GetTargetNameFromContext(r)
-		zap.L().Warn("request reached maximum reroutes", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
-		h.metricRequestErrors.WithLabelValues(targetName, "failure").Inc()
+	// reroutes := GetReroutesFromContext(r)
+	// if reroutes > h.config.Proxy.AllowedNumberOfReroutes {
+	// 	targetName := GetTargetNameFromContext(r)
+	// 	zap.L().Warn("request reached maximum reroutes", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
+	// 	h.metricRequestErrors.WithLabelValues(targetName, "failure").Inc()
 
-		http.Error(w, "Service not available", http.StatusServiceUnavailable)
-		return
-	}
+	// 	http.Error(w, "Service not available", http.StatusServiceUnavailable)
+	// 	return
+	// }
 
-	visitedTargets := GetVisitedTargetsFromContext(r)
+	// visitedTargets := GetVisitedTargetsFromContext(r)
 
-	peer := h.GetNextTargetExcluding(visitedTargets)
-	if peer != nil {
-		start := time.Now()
-		peer.Proxy.ServeHTTP(w, r)
-		duration := time.Since(start)
-		h.metricResponseTime.WithLabelValues(peer.Config.Name, r.Method).Observe(duration.Seconds())
+	// peer := h.GetNextTargetExcluding(visitedTargets)
+	// if peer != nil {
+	// 	start := time.Now()
+	// 	peer.Proxy.ServeHTTP(w, r)
+	// 	duration := time.Since(start)
+	// 	h.metricResponseTime.WithLabelValues(peer.Config.Name, r.Method).Observe(duration.Seconds())
+	// 	return
+	// }
+
+	// TODO
+	// Clone a request.
+	// Record response
+
+	response := NewHTTPStatusRecorder(w)
+	server := h.defaultPool.Next().(*HTTPTarget)
+	server.Proxy.ServeHTTP(response, r)
+
+	if !h.IsError(response.status) {
+		h.healthcheckManager.ObserveSuccess(server.Config.Name)
+
 		return
 	}
 
