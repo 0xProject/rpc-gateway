@@ -2,6 +2,7 @@ package rpcgateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -126,6 +127,10 @@ func NewRPCGatewayFromConfigBytes(configBytes []byte) (*RPCGatewayConfig, error)
 	err := yaml.Unmarshal(configBytes, &config)
 	if err != nil {
 		return nil, err
+	}
+
+	if config.Proxy.AllowedNumberOfReroutes != uint(len(config.Targets)) {
+		return nil, errors.New("The number of allowed reroutes should not be smaller than number of defined targets")
 	}
 
 	return &config, nil
