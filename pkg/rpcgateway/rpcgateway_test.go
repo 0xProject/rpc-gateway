@@ -148,3 +148,61 @@ func TestRpcGatewayFailover(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRPCGatewayFromConfigBytes(t *testing.T) {
+	tests := []struct {
+		config   string
+		hasError bool
+	}{
+		{
+			config: `
+---
+
+proxy:
+  allowedNumberOfReroutes: 0
+
+targets:
+  - name: "Foo1"
+    connection:
+      http:
+        url: "http://localhost:3000"
+  - name: "Foo2"
+    connection:
+      http:
+       url: "http://localhost:3000"
+`,
+			hasError: true,
+		},
+		{
+			config: `
+---
+
+proxy:
+  allowedNumberOfReroutes: 1
+
+targets:
+  - name: "Foo1"
+    connection:
+      http:
+        url: "http://localhost:3000"
+  - name: "Foo2"
+    connection:
+      http:
+       url: "http://localhost:3000"
+`,
+			hasError: false,
+		},
+	}
+
+	for _, tc := range tests {
+		_, err := NewRPCGatewayFromConfigBytes([]byte(tc.config))
+
+		if tc.hasError && err == nil {
+			t.Errorf("expected error but got nil")
+		}
+
+		if !tc.hasError && err != nil {
+			t.Errorf("didn't expect error but got: %v", err)
+		}
+	}
+}
