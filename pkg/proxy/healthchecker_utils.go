@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -59,7 +59,7 @@ func performGasLeftCall(ctx context.Context, client *http.Client, url string) (u
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyContent, _ := ioutil.ReadAll(resp.Body)
+		bodyContent, _ := io.ReadAll(resp.Body)
 		return 0, fmt.Errorf("got non-200 response, status: %d, body: %s", resp.StatusCode, bodyContent)
 	}
 

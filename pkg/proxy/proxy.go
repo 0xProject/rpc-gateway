@@ -184,7 +184,7 @@ func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
 	// ErrorHandler
 	// proxy.ModifyResponse = h.doModifyResponse(config)
 	//
-	proxy.ModifyResponse = h.doModifyResponse(target)
+	proxy.ModifyResponse = h.doModifyResponse(target) // nolint:bodyclose
 	proxy.ErrorHandler = h.doErrorHandler(proxy, target, index)
 
 	h.targets = append(

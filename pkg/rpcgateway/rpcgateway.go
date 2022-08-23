@@ -84,9 +84,10 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 	r.Use(LoggingMiddleware())
 
 	srv := &http.Server{
-		Handler:      r,
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
+		Handler:           r,
+		WriteTimeout:      15 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	gateway := &RPCGateway{

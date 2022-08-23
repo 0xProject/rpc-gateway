@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -43,7 +43,7 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	defer fakeRPC1Server.Close()
 
 	fakeRPC2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		w.Write(body)
 	}))
 	defer fakeRPC2Server.Close()
@@ -167,7 +167,7 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
 		receivedHeaderContentLength = r.Header.Get("Content-Length")
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		receivedBody = string(body)
 		w.Write([]byte("OK"))
 	}))
@@ -237,7 +237,7 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	var receivedBody []byte
 	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
-		receivedBody, _ = ioutil.ReadAll(r.Body)
+		receivedBody, _ = io.ReadAll(r.Body)
 		w.Write([]byte("OK"))
 	}))
 	defer fakeRPC1Server.Close()

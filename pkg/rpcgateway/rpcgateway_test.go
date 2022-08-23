@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -135,11 +135,13 @@ func TestRpcGatewayFailover(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gateway failed to handle the first failover with err: %s", err)
 	}
+	defer res.Body.Close()
+
 	if res.StatusCode != http.StatusOK {
 		t.Errorf("gateway failed to handle the first failover, expect 200, got %v", res.StatusCode)
 	}
 
-	bodyContent, _ := ioutil.ReadAll(res.Body)
+	bodyContent, _ := io.ReadAll(res.Body)
 	fmt.Println("Response from RPC gateway:")
 	fmt.Println(string(bodyContent))
 

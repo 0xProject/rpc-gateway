@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"context"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -38,7 +37,7 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 	}
 
 	if r.Header.Get("Content-Encoding") == "gzip" && !config.Connection.HTTP.Compression {
-		body, err = doGunzip(r, config)
+		body, err = doGunzip(r)
 		if err != nil {
 			return errors.Wrap(err, "cannot gunzip data")
 		}
@@ -64,7 +63,7 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 	return nil
 }
 
-func doGunzip(r *http.Request, config TargetConfig) (io.Reader, error) {
+func doGunzip(r *http.Request) (io.Reader, error) {
 	var buf bytes.Buffer
 	var body io.Reader
 
@@ -74,7 +73,7 @@ func doGunzip(r *http.Request, config TargetConfig) (io.Reader, error) {
 	}
 	// Decompress the body.
 	//
-	data, err := ioutil.ReadAll(uncompressed)
+	data, err := io.ReadAll(uncompressed)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot read uncompressed data")
 	}
