@@ -32,10 +32,11 @@ func NewServer(config Config) *Server {
 
 	return &Server{
 		server: &http.Server{
-			Handler:      mux,
-			Addr:         fmt.Sprintf(":%d", config.Port),
-			WriteTimeout: 15 * time.Second,
-			ReadTimeout:  15 * time.Second,
+			Handler:           mux,
+			Addr:              fmt.Sprintf(":%d", config.Port),
+			WriteTimeout:      15 * time.Second,
+			ReadTimeout:       15 * time.Second,
+			ReadHeaderTimeout: 5 * time.Second,
 		},
 	}
 }

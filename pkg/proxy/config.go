@@ -47,7 +47,6 @@ func (t *TargetConfig) GetParsedHTTPURL() (*url.URL, error) {
 }
 
 // This struct is temporary. It's about to keep the input interface clean and simple.
-//
 type Config struct {
 	Proxy        ProxyConfig
 	Targets      []TargetConfig

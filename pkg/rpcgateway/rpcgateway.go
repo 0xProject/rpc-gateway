@@ -84,9 +84,10 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 	r.Use(LoggingMiddleware())
 
 	srv := &http.Server{
-		Handler:      r,
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
+		Handler:           r,
+		WriteTimeout:      15 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	gateway := &RPCGateway{
@@ -123,9 +124,13 @@ func NewRPCGatewayFromConfigFile(path string) (*RPCGatewayConfig, error) {
 
 func NewRPCGatewayFromConfigBytes(configBytes []byte) (*RPCGatewayConfig, error) {
 	config := RPCGatewayConfig{}
-	err := yaml.Unmarshal(configBytes, &config)
-	if err != nil {
+
+	if err := yaml.Unmarshal(configBytes, &config); err != nil {
 		return nil, err
+	}
+
+	if config.Proxy.AllowedNumberOfReroutes < uint(len(config.Targets)-1) {
+		return nil, fmt.Errorf("the number of allowed reroutes should not be smaller than %d", len(config.Targets)-1)
 	}
 
 	return &config, nil

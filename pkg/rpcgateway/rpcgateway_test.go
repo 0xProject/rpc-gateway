@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -135,16 +135,76 @@ func TestRpcGatewayFailover(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gateway failed to handle the first failover with err: %s", err)
 	}
+	defer res.Body.Close()
+
 	if res.StatusCode != http.StatusOK {
 		t.Errorf("gateway failed to handle the first failover, expect 200, got %v", res.StatusCode)
 	}
 
-	bodyContent, _ := ioutil.ReadAll(res.Body)
+	bodyContent, _ := io.ReadAll(res.Body)
 	fmt.Println("Response from RPC gateway:")
 	fmt.Println(string(bodyContent))
 
 	err = gateway.Stop(context.TODO())
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRPCGatewayFromConfigBytes(t *testing.T) {
+	tests := []struct {
+		config   string
+		hasError bool
+	}{
+		{
+			config: `
+---
+
+proxy:
+  allowedNumberOfReroutes: 0
+
+targets:
+  - name: "Foo1"
+    connection:
+      http:
+        url: "http://localhost:3000"
+  - name: "Foo2"
+    connection:
+      http:
+       url: "http://localhost:3000"
+`,
+			hasError: true,
+		},
+		{
+			config: `
+---
+
+proxy:
+  allowedNumberOfReroutes: 1
+
+targets:
+  - name: "Foo1"
+    connection:
+      http:
+        url: "http://localhost:3000"
+  - name: "Foo2"
+    connection:
+      http:
+       url: "http://localhost:3000"
+`,
+			hasError: false,
+		},
+	}
+
+	for _, tc := range tests {
+		_, err := NewRPCGatewayFromConfigBytes([]byte(tc.config))
+
+		if tc.hasError && err == nil {
+			t.Errorf("expected error but got nil")
+		}
+
+		if !tc.hasError && err != nil {
+			t.Errorf("didn't expect error but got: %v", err)
+		}
 	}
 }
