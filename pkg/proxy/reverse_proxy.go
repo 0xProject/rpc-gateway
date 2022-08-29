@@ -45,7 +45,18 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 		body = io.TeeReader(r.Body, &buf)
 	}
 
-	r.Body = io.NopCloser(body)
+	// I don't like so much but the refactor is coming up soon!
+	//
+	// This is nothing more than ugly a workaround.
+	// This code guarantee the context buf will not be empty upon primary
+	// provider roundtrip failures.
+	//
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return errors.New("cannot read body")
+	}
+
+	r.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// Here's an interesting fact. There's no data in buf, until a call
 	// to Read(). With Read() call, it will write data to bytes.Buffer.

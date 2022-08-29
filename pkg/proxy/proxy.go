@@ -215,6 +215,7 @@ func (h *Proxy) GetNextTargetName() string {
 
 func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reroutes := GetReroutesFromContext(r)
+
 	if reroutes > h.config.Proxy.AllowedNumberOfReroutes {
 		targetName := GetTargetNameFromContext(r)
 		zap.L().Warn("request reached maximum reroutes", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
@@ -232,6 +233,7 @@ func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		peer.Proxy.ServeHTTP(w, r)
 		duration := time.Since(start)
 		h.metricResponseTime.WithLabelValues(peer.Config.Name, r.Method).Observe(duration.Seconds())
+
 		return
 	}
 
