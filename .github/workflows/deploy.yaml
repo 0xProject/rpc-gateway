@@ -8,6 +8,7 @@ on:
       environment:
         type: choice
         options:
+          - rpc-gateway-arbitrum
           - rpc-gateway-avalanche
           - rpc-gateway-bsc
           - rpc-gateway-celo
