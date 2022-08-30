@@ -362,3 +362,69 @@ func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.
 		t.Errorf("the proxy observed a canceled request while it shouldn't")
 	}
 }
+
+func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	fakeRPCServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Write(body)
+	}))
+	defer fakeRPCServer.Close()
+
+	rpcGatewayConfig := createConfig()
+	rpcGatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget = 0
+	rpcGatewayConfig.Proxy.AllowedNumberOfReroutes = 1
+
+	rpcGatewayConfig.Targets = []TargetConfig{
+		{
+			Name: "Server1",
+			Connection: TargetConfigConnection{
+				HTTP: TargetConnectionHTTP{
+					// This service should not exist at all.
+					//
+					URL: "http://foo.bar",
+				},
+			},
+		},
+		{
+			Name: "Server2",
+			Connection: TargetConfigConnection{
+				HTTP: TargetConnectionHTTP{
+					URL: fakeRPCServer.URL,
+				},
+			},
+		},
+	}
+	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
+		Targets: rpcGatewayConfig.Targets,
+		Config:  rpcGatewayConfig.HealthChecks,
+	})
+
+	// Setup HttpFailoverProxy but not starting the HealthCheckManager so the
+	// no target will be tainted or marked as unhealthy by the
+	// HealthCheckManager the failoverProxy should automatically reroute the
+	// request to the second RPC Server by itself
+
+	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
+
+	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
+	req, err := http.NewRequest("POST", "/", requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("server returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	want := `{"this_is": "body"}`
+	if rr.Body.String() != want {
+		t.Errorf("server returned unexpected body: got '%v' want '%v'", rr.Body.String(), want)
+	}
+}
