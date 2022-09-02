@@ -2,6 +2,15 @@ name: hadolint
 
 on:
   pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   hadolint:
@@ -9,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: hadolint/hadolint-action@v2.0.0
+      - uses: hadolint/hadolint-action@v2.1.0
         with:
-          dockerfile: Dockerfile
+          recursive: true
           ignore: DL3018,DL3019
