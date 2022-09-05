@@ -2,9 +2,15 @@ name: docker
 
 on:
   pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   id-token: write
@@ -14,6 +20,15 @@ env:
   REPOSITORY: 883408475785.dkr.ecr.us-east-1.amazonaws.com/rpc-gateway
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: hadolint/hadolint-action@v2.1.0
+        with:
+          recursive: true
+          ignore: DL3018,DL3019
+
   build:
     if: github.ref != 'refs/heads/main'
     name: build-only
