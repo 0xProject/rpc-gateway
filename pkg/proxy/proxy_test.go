@@ -18,7 +18,6 @@ func createConfig() Config {
 	return Config{
 		Proxy: ProxyConfig{
 			AllowedNumberOfRetriesPerTarget: 3,
-			AllowedNumberOfReroutes:         1,
 			RetryDelay:                      0,
 			UpstreamTimeout:                 0,
 		},
@@ -100,66 +99,6 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	}
 }
 
-func TestHttpFailoverProxyNotRerouteRequests(t *testing.T) {
-	prometheus.DefaultRegisterer = prometheus.NewRegistry()
-
-	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Service not available", http.StatusServiceUnavailable)
-	}))
-	defer fakeRPC1Server.Close()
-	fakeRPC2Server := httptest.NewServer(&responder{
-		value:     []byte(""),
-		onRequest: func(r *http.Request) {},
-	})
-	defer fakeRPC2Server.Close()
-	rpcGatewayConfig := createConfig()
-	rpcGatewayConfig.Targets = []TargetConfig{
-		{
-			Name: "Server1",
-			Connection: TargetConfigConnection{
-				HTTP: TargetConnectionHTTP{
-					URL: fakeRPC1Server.URL,
-				},
-			},
-		},
-		{
-			Name: "Server2",
-			Connection: TargetConfigConnection{
-				HTTP: TargetConnectionHTTP{
-					URL: fakeRPC2Server.URL,
-				},
-			},
-		},
-	}
-
-	// Tell HttpFailoverProxy to not reroute the request
-	rpcGatewayConfig.Proxy.AllowedNumberOfReroutes = 0
-
-	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
-		Targets: rpcGatewayConfig.Targets,
-		Config:  rpcGatewayConfig.HealthChecks,
-	})
-	// Setup HttpFailoverProxy but not starting the HealthCheckManager
-	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
-
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
-
-	handler.ServeHTTP(rr, req)
-
-	// expect server to return 503 as the first RPC is unhealthy and
-	// the failover proxy doesn't try to reroute the request to the second RPC (healthy)
-	if status := rr.Code; status != http.StatusServiceUnavailable {
-		t.Errorf("server returned wrong status code: got %v want %v", status, http.StatusServiceUnavailable)
-	}
-}
-
 func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 
@@ -183,9 +122,6 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 			},
 		},
 	}
-
-	// Tell HttpFailoverProxy to not reroute the request
-	rpcGatewayConfig.Proxy.AllowedNumberOfReroutes = 0
 
 	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
@@ -253,9 +189,6 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 			},
 		},
 	}
-
-	// Tell HttpFailoverProxy to not reroute the request
-	rpcGatewayConfig.Proxy.AllowedNumberOfReroutes = 0
 
 	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
@@ -374,7 +307,6 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 
 	rpcGatewayConfig := createConfig()
 	rpcGatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget = 0
-	rpcGatewayConfig.Proxy.AllowedNumberOfReroutes = 1
 
 	rpcGatewayConfig.Targets = []TargetConfig{
 		{
