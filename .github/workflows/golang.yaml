@@ -34,6 +34,16 @@ jobs:
         if: always()
         run: docker-compose logs
 
+  vulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+      - uses: actions/checkout@v3
+      - uses: 0xProject/setup-govulncheck@v1
+      - run: govulncheck ./...
+
   lint:
     runs-on: ubuntu-latest
     steps:
