@@ -24,7 +24,6 @@ proxy:
   upstreamTimeout: "200m" # when is a request considered timed out
   allowedNumberOfRetriesPerTarget: 2 # The number of retries within the same RPC target for a single request
   retryDelay: "10ms" # delay between retries
-  allowedNumberOfReroutes: 1 # The total number of re-routes (to the next healthy RPC target)
 
 healthChecks:
   interval: "1s" # how often to do healthchecks
@@ -148,63 +147,5 @@ func TestRpcGatewayFailover(t *testing.T) {
 	err = gateway.Stop(context.TODO())
 	if err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestRPCGatewayFromConfigBytes(t *testing.T) {
-	tests := []struct {
-		config   string
-		hasError bool
-	}{
-		{
-			config: `
----
-
-proxy:
-  allowedNumberOfReroutes: 0
-
-targets:
-  - name: "Foo1"
-    connection:
-      http:
-        url: "http://localhost:3000"
-  - name: "Foo2"
-    connection:
-      http:
-       url: "http://localhost:3000"
-`,
-			hasError: true,
-		},
-		{
-			config: `
----
-
-proxy:
-  allowedNumberOfReroutes: 1
-
-targets:
-  - name: "Foo1"
-    connection:
-      http:
-        url: "http://localhost:3000"
-  - name: "Foo2"
-    connection:
-      http:
-       url: "http://localhost:3000"
-`,
-			hasError: false,
-		},
-	}
-
-	for _, tc := range tests {
-		_, err := NewRPCGatewayFromConfigBytes([]byte(tc.config))
-
-		if tc.hasError && err == nil {
-			t.Errorf("expected error but got nil")
-		}
-
-		if !tc.hasError && err != nil {
-			t.Errorf("didn't expect error but got: %v", err)
-		}
 	}
 }

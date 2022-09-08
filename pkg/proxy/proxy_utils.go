@@ -7,19 +7,10 @@ import (
 type ContextFailoverKeyInt int
 
 const (
-	Reroutes ContextFailoverKeyInt = iota
-	Retries
+	Retries ContextFailoverKeyInt = iota
 	TargetName
 	VisitedTargets
 )
-
-// GetReroutesFromContext returns the reroutes for request.
-func GetReroutesFromContext(r *http.Request) uint {
-	if reroutes, ok := r.Context().Value(Reroutes).(uint); ok {
-		return reroutes
-	}
-	return 0
-}
 
 // GetRetryFromContext returns the retries for request.
 func GetRetryFromContext(r *http.Request) uint {

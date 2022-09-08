@@ -129,10 +129,6 @@ func NewRPCGatewayFromConfigBytes(configBytes []byte) (*RPCGatewayConfig, error)
 		return nil, err
 	}
 
-	if config.Proxy.AllowedNumberOfReroutes < uint(len(config.Targets)-1) {
-		return nil, fmt.Errorf("the number of allowed reroutes should not be smaller than %d", len(config.Targets)-1)
-	}
-
 	return &config, nil
 }
 

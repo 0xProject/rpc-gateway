@@ -155,13 +155,11 @@ func (h *Proxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig
 
 		// route the request to a different target
 		h.metricRequestErrors.WithLabelValues(config.Name, "rerouted").Inc()
-		reroutes := GetReroutesFromContext(r)
 		visitedTargets := GetVisitedTargetsFromContext(r)
-		ctx := context.WithValue(r.Context(), Reroutes, reroutes+1)
 
 		// add the current target to the VisitedTargets slice to exclude it when selecting
 		// the next target
-		ctx = context.WithValue(ctx, VisitedTargets, append(visitedTargets, index))
+		ctx := context.WithValue(r.Context(), VisitedTargets, append(visitedTargets, index))
 
 		// adding the targetname in case it errors out and needs to be
 		// used in metrics in ServeHTTP.
@@ -214,17 +212,6 @@ func (h *Proxy) GetNextTargetName() string {
 }
 
 func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	reroutes := GetReroutesFromContext(r)
-
-	if reroutes > h.config.Proxy.AllowedNumberOfReroutes {
-		targetName := GetTargetNameFromContext(r)
-		zap.L().Warn("request reached maximum reroutes", zap.String("remoteAddr", r.RemoteAddr), zap.String("url", r.URL.Path))
-		h.metricRequestErrors.WithLabelValues(targetName, "failure").Inc()
-
-		http.Error(w, "Service not available", http.StatusServiceUnavailable)
-		return
-	}
-
 	visitedTargets := GetVisitedTargetsFromContext(r)
 
 	peer := h.GetNextTargetExcluding(visitedTargets)
