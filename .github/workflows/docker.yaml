@@ -16,9 +16,6 @@ permissions:
   id-token: write
   contents: read
 
-env:
-  REPOSITORY: 883408475785.dkr.ecr.us-east-1.amazonaws.com/rpc-gateway
-
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -30,42 +27,19 @@ jobs:
           ignore: DL3018,DL3019
 
   build:
-    if: github.ref != 'refs/heads/main'
-    name: build-only
     runs-on: ubuntu-latest
     steps:
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Build image
-        uses: docker/build-push-action@v3
+      - uses: actions/checkout@v3
+      - uses: aws-actions/configure-aws-credentials@v1
         with:
-          push: false
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ env.REPOSITORY }}:${{ github.sha }}
-
-  push:
-    if: github.ref == 'refs/heads/main'
-    name: push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+          role-to-assume: ${{ secrets.AWSROLE }}
+          aws-region: ${{ secrets.AWSREGION }}
+      - uses: aws-actions/amazon-ecr-login@v1
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+      - uses: docker/build-push-action@v3
         with:
-          role-to-assume: arn:aws:iam::883408475785:role/github-actions
-          aws-region: us-east-1
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-      - name: Build and push image
-        uses: docker/build-push-action@v3
-        with:
-         push: true
+         push: ${{ github.ref == 'refs/heads/main' }}
          platforms: linux/amd64,linux/arm64
-         tags: ${{ env.REPOSITORY }}:${{ github.sha }}
+         tags: ${{ secrets.REGISTRY }}/rpc-gateway:${{ github.sha }}
 
