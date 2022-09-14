@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine3.15 AS builder
+FROM golang:1.19-alpine3.16 AS builder
 
 RUN apk add --update-cache \
         git \
@@ -9,7 +9,7 @@ COPY . .
 
 RUN go build -o rpc-gateway cmd/rpcgateway/main.go
 
-FROM alpine:3.15
+FROM alpine:3.16
 
 RUN apk add --update-cache --no-cache \
         ca-certificates
