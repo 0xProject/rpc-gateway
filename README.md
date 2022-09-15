@@ -116,11 +116,3 @@ We should build multi-arch image so the image can be run in both `arm64` and `am
 TAG="$(git rev-parse HEAD)"
 docker buildx build --platform linux/amd64,linux/arm64 -t 883408475785.dkr.ecr.us-east-1.amazonaws.com/rpc-gateway:${TAG} --push .
 ```
-
-## Deployment
-
-Upon merge to master branch, Github action kicks in to build and push Docker
-image to AWS ECR. In order to trigger a deployment to Kubernetes, you have to follow the steps:
-
-- Trigger [deploy workflow](https://github.com/0xProject/rpc-gateway/actions/workflows/deploy.yaml).
-- Merge pull request created by deploy worklow in [0x-main-infra](https://github.com/0xProject/0x-main-infra).
