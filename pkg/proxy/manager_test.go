@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHealthcheckManager(t *testing.T) {
@@ -43,16 +44,14 @@ func TestHealthcheckManager(t *testing.T) {
 	go manager.Start(ctx)
 
 	nextIdx := manager.GetNextHealthyTargetIndex()
-	if nextIdx != 0 {
-		t.Fatal("first index is not zero")
-	}
+	assert.Zero(t, nextIdx)
+
 	time.Sleep(1 * time.Second)
 
 	manager.TaintTarget("AnkrOne")
+
 	nextIdx = manager.GetNextHealthyTargetIndex()
-	if nextIdx != 1 {
-		t.Fatal("did not handle the taint well")
-	}
+	assert.Equal(t, 1, nextIdx)
 
 	manager.Stop(ctx)
 }
@@ -104,9 +103,7 @@ func TestHealthcheckManagerRollingWindowTaintEnabled(t *testing.T) {
 	want := true
 	got := manager.GetTargetByName("AnkrOne").IsTainted()
 
-	if want != got {
-		t.Error("The healthcheck manager tainted the target while it should not when RollingWindowTaintEnabled is set to false")
-	}
+	assert.Equal(t, want, got)
 
 	manager.Stop(ctx)
 }

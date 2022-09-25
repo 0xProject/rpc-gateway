@@ -2,6 +2,8 @@ package rollingwindow
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRollingAverage(t *testing.T) {
@@ -13,14 +15,8 @@ func TestRollingAverage(t *testing.T) {
 	r.Observe(1)
 	r.Observe(0)
 
-	// [1, 1, 1, 1, 0] - 80%
-	if r.Avg() != 0.8 {
-		t.Fatal("expected the average to be 80%")
-	}
-
-	if r.Sum() != 4 {
-		t.Fatal("expected the sum to be equal 4")
-	}
+	assert.Equal(t, 0.8, r.Avg())
+	assert.Equal(t, 4, r.Sum())
 }
 
 func TestRollingWindowReset(t *testing.T) {
@@ -33,9 +29,8 @@ func TestRollingWindowReset(t *testing.T) {
 	r.Observe(0)
 
 	r.Reset()
-	if r.Sum() != 0 {
-		t.Fatal("expected the sum to be equal 0")
-	}
+
+	assert.Zero(t, r.Sum())
 }
 
 func TestRollingWindowHasEnoughObservations(t *testing.T) {
@@ -46,15 +41,11 @@ func TestRollingWindowHasEnoughObservations(t *testing.T) {
 	r.Observe(1)
 	r.Observe(1)
 
-	if r.HasEnoughObservations() {
-		t.Fatal("expected HasEnoughObservations to return false")
-	}
+	assert.False(t, r.HasEnoughObservations())
 
 	r.Observe(1)
 
-	if !r.HasEnoughObservations() {
-		t.Fatal("expected HasEnoughObservations to return true")
-	}
+	assert.True(t, r.HasEnoughObservations())
 }
 
 func BenchmarkRollingAverageParallel(b *testing.B) {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
 )
 
 func createConfig() Config {
@@ -78,25 +79,19 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest("POST", "/", requestBody)
-	if err != nil {
-		t.Fatal(err)
-	}
+
+	assert.Nil(t, err)
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
-
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("server returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
+	assert.Equal(t, http.StatusOK, rr.Code)
 
 	// This test makes sure that the request's body is forwarded to
 	// the next RPC Provider
-	want := `{"this_is": "body"}`
-	if rr.Body.String() != want {
-		t.Errorf("server returned unexpected body: got %v want %v", rr.Body.String(), want)
-	}
+	//
+	assert.Equal(t, `{"this_is": "body"}`, rr.Body.String())
 }
 
 func TestHttpFailoverProxyDecompressRequest(t *testing.T) {

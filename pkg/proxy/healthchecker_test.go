@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 
@@ -19,6 +20,7 @@ func TestBasicHealthchecker(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
 	healtcheckConfig := RPCHealthcheckerConfig{
 		URL:              "https://rpc.ankr.com/eth",
 		Interval:         1 * time.Second,
@@ -28,30 +30,20 @@ func TestBasicHealthchecker(t *testing.T) {
 	}
 
 	healthchecker, err := NewHealthchecker(healtcheckConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 
 	healthchecker.Start(ctx)
 
-	if !(healthchecker.BlockNumber() > 0) {
-		t.Fatal("Healthchecker did not update the blockNumber")
-	}
+	assert.NotZero(t, healthchecker.BlockNumber())
 
 	// TODO: can be flaky due to cloudflare-eth endpoint
-	if healthchecker.IsHealthy() == false {
-		t.Fatal("Healthchecker by default should be healthy after running for a bit")
-	}
+	assert.True(t, healthchecker.IsHealthy())
 
 	healthchecker.Taint()
-	if healthchecker.IsHealthy() == true {
-		t.Fatal("Should be unhealthy if taint is set to true")
-	}
+	assert.False(t, healthchecker.IsHealthy())
 
 	healthchecker.RemoveTaint()
-	if healthchecker.IsHealthy() == false {
-		t.Fatal("Should be healthy after the taint is removed")
-	}
+	assert.True(t, healthchecker.IsHealthy())
 }
 
 func TestGasLeftCall(t *testing.T) {
@@ -59,19 +51,13 @@ func TestGasLeftCall(t *testing.T) {
 	url := "https://rpc.ankr.com/eth"
 
 	result, err := performGasLeftCall(context.TODO(), client, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if result == 0 {
-		t.Fatal("received gas limit equal to 0")
-	}
+	assert.Nil(t, err)
+	assert.NotZero(t, result)
 
 	// testing the timeout
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancelFunc()
+
 	_, err = performGasLeftCall(ctx, client, url)
-	if err == nil {
-		t.Fatal("expected the performGasLeftCall to timeout")
-	}
+	assert.NotNil(t, err)
 }

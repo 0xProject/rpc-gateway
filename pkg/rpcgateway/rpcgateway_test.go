@@ -12,6 +12,7 @@ import (
 
 	toxiproxy "github.com/Shopify/toxiproxy/client"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 
@@ -79,19 +80,17 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	// Toxic Proxy setup
 	toxiClient := toxiproxy.NewClient("localhost:8474")
-	if err := toxiClient.ResetState(); err != nil {
-		t.Fatal(err)
-	}
+	err := toxiClient.ResetState()
+	assert.Nil(t, err)
+
 	proxy, err := toxiClient.CreateProxy("cloudflare", "0.0.0.0:9991", ts.URL[7:])
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
+
 	_, err = proxy.AddToxic("latency_down", "latency", "downstream", 1.0, toxiproxy.Attributes{
 		"latency": 100000,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
+
 	defer func() {
 		_ = toxiClient.ResetState()
 		_ = proxy.Delete()
@@ -101,23 +100,22 @@ func TestRpcGatewayFailover(t *testing.T) {
 	var tpl bytes.Buffer
 	tu := TestURL{"http://0.0.0.0:9991", "https://rpc.ankr.com/eth"}
 	tmpl, err := template.New("test").Parse(rpcGatewayConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpl.Execute(&tpl, tu); err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
+
+	err = tmpl.Execute(&tpl, tu)
+	assert.Nil(t, err)
+
 	configString := tpl.String()
 
-	fmt.Println(configString)
+	t.Log(configString)
+
 	config, err := NewRPCGatewayFromConfigString(configString)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 
 	gateway := NewRPCGateway(*config)
 	go gateway.Start(context.TODO())
 	gs := httptest.NewServer(gateway)
+
 	gsClient := gs.Client()
 	// We limit the connection pool to have a single sourceIP on localhost
 	gsClient.Transport = &http.Transport{
@@ -125,27 +123,24 @@ func TestRpcGatewayFailover(t *testing.T) {
 		MaxConnsPerHost: 1,
 	}
 
-	fmt.Println("gateway serving from: ", gs.URL)
+	t.Logf("gateway serving from: %s", gs.URL)
 
 	req, _ := http.NewRequest("POST", gs.URL, bytes.NewBufferString(``))
 	req.Header.Set("Content-Type", "application/json")
 	req.ContentLength = int64(len(rpcRequestBody))
+
 	res, err := gsClient.Do(req)
-	if err != nil {
-		t.Fatalf("gateway failed to handle the first failover with err: %s", err)
-	}
+	assert.Nil(t, err)
+
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("gateway failed to handle the first failover, expect 200, got %v", res.StatusCode)
-	}
+	assert.Equal(t, http.StatusOK, res.StatusCode)
 
 	bodyContent, _ := io.ReadAll(res.Body)
-	fmt.Println("Response from RPC gateway:")
-	fmt.Println(string(bodyContent))
+
+	t.Log("Response from RPC gateway:")
+	t.Logf("%s", bodyContent)
 
 	err = gateway.Stop(context.TODO())
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 }
