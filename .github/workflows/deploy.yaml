@@ -56,7 +56,7 @@ jobs:
           # Output for next steps
           echo "##[set-output name=current_image_tag;]${current_image_tag}"
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v3
+        uses: peter-evans/create-pull-request@v4
         with:
           token: ${{ secrets.PAT }}
           author: ${{ github.event.sender.login }} <${{ github.event.sender.login }}@users.noreply.github.com>
