@@ -79,7 +79,6 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest("POST", "/", requestBody)
-
 	assert.Nil(t, err)
 
 	rr := httptest.NewRecorder()
@@ -159,6 +158,8 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	if receivedHeaderContentLength != want {
 		t.Errorf("the proxy didn't correctly re-calculate the `Content-Length` after decompressing the body, want: %s, got: %s", want, receivedHeaderContentLength)
 	}
+
+	assert.Equal(t, `{"this_is": "body"}`, rr.Body.String())
 }
 
 func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
@@ -294,16 +295,18 @@ func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.
 func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 
-	fakeRPCServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		w.Write(body)
-	}))
-	defer fakeRPCServer.Close()
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, _ := io.ReadAll(r.Body)
+			w.Write(body)
+		},
+		))
+	defer server.Close()
 
-	rpcGatewayConfig := createConfig()
-	rpcGatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget = 0
+	config := createConfig()
+	config.Proxy.AllowedNumberOfRetriesPerTarget = 0
 
-	rpcGatewayConfig.Targets = []TargetConfig{
+	config.Targets = []TargetConfig{
 		{
 			Name: "Server1",
 			Connection: TargetConfigConnection{
@@ -318,14 +321,14 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 			Name: "Server2",
 			Connection: TargetConfigConnection{
 				HTTP: TargetConnectionHTTP{
-					URL: fakeRPCServer.URL,
+					URL: server.URL,
 				},
 			},
 		},
 	}
 	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
-		Targets: rpcGatewayConfig.Targets,
-		Config:  rpcGatewayConfig.HealthChecks,
+		Targets: config.Targets,
+		Config:  config.HealthChecks,
 	})
 
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager so the
@@ -333,25 +336,17 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 	// HealthCheckManager the failoverProxy should automatically reroute the
 	// request to the second RPC Server by itself
 
-	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(config, healthcheckManager)
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest("POST", "/", requestBody)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
 
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("server returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	want := `{"this_is": "body"}`
-	if rr.Body.String() != want {
-		t.Errorf("server returned unexpected body: got '%v' want '%v'", rr.Body.String(), want)
-	}
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, `{"this_is": "body"}`, rr.Body.String())
 }

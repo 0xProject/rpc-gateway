@@ -2,19 +2,41 @@ package rpcgateway
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
-	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
+	"github.com/0xProject/rpc-gateway/pkg/proxy"
 	toxiproxy "github.com/Shopify/toxiproxy/client"
+	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
+
+func createConfig() proxy.Config {
+	return proxy.Config{
+		Proxy: proxy.ProxyConfig{
+			AllowedNumberOfRetriesPerTarget: 3,
+			RetryDelay:                      0,
+			UpstreamTimeout:                 0,
+		},
+		HealthChecks: proxy.HealthCheckConfig{
+			Interval:                      0,
+			Timeout:                       0,
+			FailureThreshold:              0,
+			SuccessThreshold:              0,
+			RollingWindowSize:             100,
+			RollingWindowFailureThreshold: 0.9,
+		},
+		Targets: []proxy.TargetConfig{},
+	}
+}
 
 var rpcGatewayConfig = `
 metrics:
@@ -67,15 +89,12 @@ func TestRpcGatewayFailover(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	zap.ReplaceGlobals(logger)
 
-	// RPC backends setup
-	onReq := func(r *http.Request) {
-		fmt.Println("got request")
-	}
-	rpcBackend := &responder{
-		value:     []byte(`{"jsonrpc":"2.0","id":1,"result":"0xd8d7df"}`),
-		onRequest: onReq,
-	}
-	ts := httptest.NewServer(rpcBackend)
+	ts := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(200)
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0xd8d7df"}`))
+
+		}))
 	defer ts.Close()
 
 	// Toxic Proxy setup
@@ -125,7 +144,19 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	t.Logf("gateway serving from: %s", gs.URL)
 
-	req, _ := http.NewRequest("POST", gs.URL, bytes.NewBufferString(``))
+	config, err := NewRPCGatewayFromConfigBytes([]byte(configString))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gateway := NewRPCGateway(*config)
+	go gateway.Start(context.TODO())
+
+	rec := httptest.NewRecorder()
+	req, err := http.NewRequest("POST", "/", bytes.NewBufferString(rpcRequestBody))
+
+	assert.Nil(t, err)
+
 	req.Header.Set("Content-Type", "application/json")
 	req.ContentLength = int64(len(rpcRequestBody))
 
@@ -143,4 +174,81 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	err = gateway.Stop(context.TODO())
 	assert.Nil(t, err)
+
+	c := gateway.instance.NewContext(req, rec)
+
+	failover := echo.WrapHandler(gateway.httpFailoverProxy)
+	failover(c)
+
+	assert.Equal(t, http.StatusOK, rec.Code, "failed to handle the first failover")
+
+	if err = gateway.Stop(context.TODO()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	var receivedBody, receivedHeaderContentEncoding, receivedHeaderContentLength string
+
+	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
+			receivedHeaderContentLength = r.Header.Get("Content-Length")
+			body, _ := io.ReadAll(r.Body)
+			receivedBody = string(body)
+			w.Write([]byte("OK"))
+		}))
+	defer fakeRPC1Server.Close()
+
+	rpcGatewayConfig := createConfig()
+	rpcGatewayConfig.Targets = []proxy.TargetConfig{
+		{
+			Name: "Server1",
+			Connection: proxy.TargetConfigConnection{
+				HTTP: proxy.TargetConnectionHTTP{
+					URL: fakeRPC1Server.URL,
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	g := gzip.NewWriter(&buf)
+	_, err := g.Write([]byte(`{"body": "content"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = g.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", "/", &buf)
+	req.Header.Add("Content-Encoding", "gzip")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	gateway := NewRPCGateway(rpcGatewayConfig)
+
+	ctx := gateway.instance.NewContext(req, rr)
+	failover := echo.WrapHandler(gateway.httpFailoverProxy)
+	failover(c)
+
+	want := `{"body": "content"}`
+	if receivedBody != want {
+		t.Errorf("the proxy didn't decompress the request before forwarding the body to the target: want: %s, got: %s", want, receivedBody)
+	}
+	want = ""
+	if receivedHeaderContentEncoding != want {
+		t.Errorf("the proxy didn't remove the `Content-Encoding: gzip` after decompressing the body, want empty, got: %s", receivedHeaderContentEncoding)
+	}
+	want = strconv.Itoa(len(`{"body": "content"}`))
+	if receivedHeaderContentLength != want {
+		t.Errorf("the proxy didn't correctly re-calculate the `Content-Length` after decompressing the body, want: %s, got: %s", want, receivedHeaderContentLength)
+	}
+
 }

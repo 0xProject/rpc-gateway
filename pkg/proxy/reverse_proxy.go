@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"io"
 	"net"
@@ -17,18 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// TODO
-// This code needs a new abstraction. We should bring a model and attach helper to a model.
-//
-
-func doProcessRequest(r *http.Request, config TargetConfig) error {
-	var body io.Reader
+func doProcessRequest(r *http.Request) error {
 	var buf bytes.Buffer
-	var err error
-
-	if r.Body == nil {
-		return errors.New("no body")
-	}
 
 	// The standard library stores ContentLength as signed data type.
 	//
@@ -36,14 +25,7 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 		return errors.New("invalid content length")
 	}
 
-	if r.Header.Get("Content-Encoding") == "gzip" && !config.Connection.HTTP.Compression {
-		body, err = doGunzip(r)
-		if err != nil {
-			return errors.Wrap(err, "cannot gunzip data")
-		}
-	} else {
-		body = io.TeeReader(r.Body, &buf)
-	}
+	body := io.TeeReader(r.Body, &buf)
 
 	// I don't like so much but the refactor is coming up soon!
 	//
@@ -74,33 +56,6 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 	return nil
 }
 
-func doGunzip(r *http.Request) (io.Reader, error) {
-	var buf bytes.Buffer
-	var body io.Reader
-
-	uncompressed, err := gzip.NewReader(r.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot decompress the data")
-	}
-	// Decompress the body.
-	//
-	data, err := io.ReadAll(uncompressed)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot read uncompressed data")
-	}
-
-	// Replace body content with uncompressed data
-	// Remove the "Content-Encoding: gzip" because the body is decompressed already
-	// and correct the Content-Length header
-	//
-	body = io.TeeReader(bytes.NewReader(data), &buf)
-
-	r.Header.Del("Content-Encoding")
-	r.ContentLength = int64(len(data))
-
-	return body, nil
-}
-
 func NewReverseProxy(targetConfig TargetConfig, config Config) (*httputil.ReverseProxy, error) {
 	target, err := url.Parse(targetConfig.Connection.HTTP.URL)
 	if err != nil {
@@ -117,7 +72,7 @@ func NewReverseProxy(targetConfig TargetConfig, config Config) (*httputil.Revers
 		// Workaround to reserve request body in ReverseProxy.ErrorHandler
 		// see more here: https://github.com/golang/go/issues/33726
 		//
-		if err := doProcessRequest(r, targetConfig); err != nil {
+		if err := doProcessRequest(r); err != nil {
 			zap.L().Error("cannot process request", zap.Error(err))
 		}
 

@@ -1,21 +1,18 @@
 package metrics
 
 import (
-	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 )
 
 type Server struct {
-	server *http.Server
+	server *echo.Echo
 }
 
 func (s *Server) Start() error {
-	zap.L().Info("metrics server starting", zap.String("listenAddr", s.server.Addr))
-	return s.server.ListenAndServe()
+	return s.server.Start(":3000")
 }
 
 func (s *Server) Stop() error {
@@ -23,20 +20,15 @@ func (s *Server) Stop() error {
 }
 
 func NewServer(config Config) *Server {
-	mux := http.NewServeMux()
+	server := echo.New()
+	server.HideBanner = true
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "{\"healthy\":true}")
+	server.GET("/healthz", func(c echo.Context) error {
+		return c.String(http.StatusOK, "{ \"healthy\": true }")
 	})
-	mux.Handle("/metrics", promhttp.Handler())
+	server.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
 	return &Server{
-		server: &http.Server{
-			Handler:           mux,
-			Addr:              fmt.Sprintf(":%d", config.Port),
-			WriteTimeout:      15 * time.Second,
-			ReadTimeout:       15 * time.Second,
-			ReadHeaderTimeout: 5 * time.Second,
-		},
+		server: server,
 	}
 }
