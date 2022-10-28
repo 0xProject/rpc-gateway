@@ -26,43 +26,43 @@ type RPCGateway struct {
 	metricRequestsProcessed *prometheus.CounterVec
 }
 
-func (r *RPCGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	r.server.Handler.ServeHTTP(w, req)
+func (rpc *RPCGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	rpc.server.Handler.ServeHTTP(w, req)
 }
 
-func (r *RPCGateway) Start(ctx context.Context) error {
+func (rpc *RPCGateway) Start(ctx context.Context) error {
 	zap.L().Info("starting rpc gateway")
 
 	go func() {
 		zap.L().Info("starting healthcheck manager")
-		err := r.healthcheckManager.Start(ctx)
+		err := rpc.healthcheckManager.Start(ctx)
 		if err != nil {
 			// TODO: Handle gracefully
 			zap.L().Fatal("failed to start healthcheck manager", zap.Error(err))
 		}
 	}()
 
-	listenAddress := fmt.Sprintf(":%s", r.config.Proxy.Port)
+	listenAddress := fmt.Sprintf(":%s", rpc.config.Proxy.Port)
 	zap.L().Info("starting http failover proxy", zap.String("listenAddr", listenAddress))
 	listener, err := net.Listen("tcp", listenAddress)
 	if err != nil {
 		zap.L().Error("Failed to listen", zap.Error(err))
 	}
 	httpListener := conntrack.NewListener(listener, conntrack.TrackWithTracing())
-	return r.server.Serve(httpListener)
+	return rpc.server.Serve(httpListener)
 }
 
-func (r *RPCGateway) Stop(ctx context.Context) error {
+func (rpc *RPCGateway) Stop(ctx context.Context) error {
 	zap.L().Info("stopping rpc gateway")
-	err := r.healthcheckManager.Stop(ctx)
+	err := rpc.healthcheckManager.Stop(ctx)
 	if err != nil {
 		zap.L().Error("healthcheck manager failed to stop gracefully", zap.Error(err))
 	}
-	return r.server.Close()
+	return rpc.server.Close()
 }
 
-func (r *RPCGateway) GetCurrentTarget() string {
-	return r.httpFailoverProxy.GetNextTargetName()
+func (rpc *RPCGateway) GetCurrentTarget() string {
+	return rpc.httpFailoverProxy.GetNextTargetName()
 }
 
 func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
@@ -81,7 +81,6 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 	)
 
 	r := mux.NewRouter()
-	r.Use(LoggingMiddleware())
 
 	srv := &http.Server{
 		Handler:           r,
@@ -105,6 +104,7 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 			}),
 	}
 
+	r.Use(gateway.LoggingMiddleware())
 	r.Use(RequestCounters(gateway.metricRequestsProcessed))
 
 	r.PathPrefix("/").Handler(httpFailoverProxy)
