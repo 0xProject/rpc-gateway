@@ -2,6 +2,7 @@ package rpcgateway
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -63,8 +64,26 @@ func (rpc *RPCGateway) LoggingMiddleware() func(http.Handler) http.Handler {
 
 					return
 				}
+
+				var data bytes.Buffer
+				gz := gzip.NewWriter(&data)
+				if _, err := gz.Write(body); err != nil {
+					zap.L().Error("cannot compress data", zap.Error(err))
+
+					w.WriteHeader(http.StatusInternalServerError)
+
+					return
+				}
+				if err := gz.Close(); err != nil {
+					zap.L().Error("cannot close gzip", zap.Error(err))
+
+					w.WriteHeader(http.StatusInternalServerError)
+
+					return
+				}
+
 				fields = append(fields,
-					zap.String("body", base64.StdEncoding.EncodeToString(bytes.NewBuffer(body).Bytes())))
+					zap.String("body", base64.StdEncoding.EncodeToString(data.Bytes())))
 
 				reader := io.NopCloser(bytes.NewBuffer(body))
 				r.Body = reader
