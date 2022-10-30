@@ -19,7 +19,7 @@ func main() {
 	defer stop()
 
 	debugLogEnabled := os.Getenv("DEBUG") == "true"
-	logLevel := zap.InfoLevel
+	logLevel := zap.WarnLevel
 	if debugLogEnabled {
 		logLevel = zap.DebugLevel
 	}
