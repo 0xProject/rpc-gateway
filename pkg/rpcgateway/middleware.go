@@ -1,10 +1,7 @@
 package rpcgateway
 
 import (
-	"bytes"
-	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"runtime/debug"
 	"time"
@@ -34,7 +31,9 @@ func (r *HTTPStatusRecorder) WriteHeader(status int) {
 	r.wroteHeader = true
 }
 
-func (rpc *RPCGateway) LoggingMiddleware() func(http.Handler) http.Handler {
+// LoggingMiddleware logs the incoming HTTP request & its duration
+// and also report the metrics to prometheus.
+func LoggingMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -44,37 +43,15 @@ func (rpc *RPCGateway) LoggingMiddleware() func(http.Handler) http.Handler {
 				}
 			}()
 
+			start := time.Now()
 			recorder := NewHTTPStatusRecorder(w)
+			next.ServeHTTP(recorder, r)
 
-			fields := []zap.Field{
+			zap.L().Info("processed request",
 				zap.String("path", r.URL.EscapedPath()),
 				zap.String("method", r.Method),
 				zap.Int("statusCode", recorder.status),
-			}
-
-			start := time.Now()
-
-			if rpc.config.Logging.LogRequestBody {
-				body, err := io.ReadAll(r.Body)
-				if err != nil {
-					zap.L().Error("cannot read request body", zap.Error(err))
-
-					w.WriteHeader(http.StatusInternalServerError)
-
-					return
-				}
-				fields = append(fields,
-					zap.String("body", base64.StdEncoding.EncodeToString(bytes.NewBuffer(body).Bytes())))
-
-				reader := io.NopCloser(bytes.NewBuffer(body))
-				r.Body = reader
-			}
-
-			next.ServeHTTP(recorder, r)
-
-			fields = append(fields, zap.Duration("duration", time.Since(start)))
-
-			zap.L().Info("processed request", fields...)
+				zap.Int64("duration", int64(time.Since(start))))
 		}
 
 		return http.HandlerFunc(fn)
