@@ -8,7 +8,9 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
+	"github.com/go-http-utils/headers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,13 +18,13 @@ import (
 func createConfig() Config {
 	return Config{
 		Proxy: ProxyConfig{
-			UpstreamTimeout: 0,
+			UpstreamTimeout: 1 * time.Second,
 		},
 		HealthChecks: HealthCheckConfig{
-			Interval:         0,
-			Timeout:          0,
-			FailureThreshold: 0,
-			SuccessThreshold: 0,
+			Interval:         5 * time.Second,
+			Timeout:          1 * time.Second,
+			FailureThreshold: 2,
+			SuccessThreshold: 1,
 		},
 		Targets: []TargetConfig{},
 	}
@@ -93,8 +95,8 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 
 	var receivedBody, receivedHeaderContentEncoding, receivedHeaderContentLength string
 	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
-		receivedHeaderContentLength = r.Header.Get("Content-Length")
+		receivedHeaderContentEncoding = r.Header.Get(headers.ContentEncoding)
+		receivedHeaderContentLength = r.Header.Get(headers.ContentLength)
 		body, _ := io.ReadAll(r.Body)
 		receivedBody = string(body)
 		w.Write([]byte("OK"))
@@ -123,36 +125,22 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
 	_, err := g.Write([]byte(`{"body": "content"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
+
 	err = g.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 
 	req, err := http.NewRequest("POST", "/", &buf)
-	req.Header.Add("Content-Encoding", "gzip")
-	if err != nil {
-		t.Fatal(err)
-	}
+	req.Header.Add(headers.ContentEncoding, "gzip")
+	assert.Nil(t, err)
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
 	handler.ServeHTTP(rr, req)
 
-	want := `{"body": "content"}`
-	if receivedBody != want {
-		t.Errorf("the proxy didn't decompress the request before forwarding the body to the target: want: %s, got: %s", want, receivedBody)
-	}
-	want = ""
-	if receivedHeaderContentEncoding != want {
-		t.Errorf("the proxy didn't remove the `Content-Encoding: gzip` after decompressing the body, want empty, got: %s", receivedHeaderContentEncoding)
-	}
-	want = strconv.Itoa(len(`{"body": "content"}`))
-	if receivedHeaderContentLength != want {
-		t.Errorf("the proxy didn't correctly re-calculate the `Content-Length` after decompressing the body, want: %s, got: %s", want, receivedHeaderContentLength)
-	}
+	assert.Equal(t, receivedBody, `{"body": "content"}`)
+	assert.Equal(t, receivedHeaderContentEncoding, "")
+	assert.Equal(t, receivedHeaderContentLength, strconv.Itoa(len(`{"body": "content"}`)))
 }
 
 func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
@@ -161,7 +149,7 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	var receivedHeaderContentEncoding string
 	var receivedBody []byte
 	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
+		receivedHeaderContentEncoding = r.Header.Get(headers.ContentEncoding)
 		receivedBody, _ = io.ReadAll(r.Body)
 		w.Write([]byte("OK"))
 	}))
@@ -190,37 +178,29 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
 	_, err := g.Write([]byte(`{"body": "content"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
+
 	err = g.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 
 	req, err := http.NewRequest("POST", "/", &buf)
-	req.Header.Add("Content-Encoding", "gzip")
-	if err != nil {
-		t.Fatal(err)
-	}
+	req.Header.Add(headers.ContentEncoding, "gzip")
+
+	assert.Nil(t, err)
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
 	handler.ServeHTTP(rr, req)
 
-	want := "gzip"
-	if receivedHeaderContentEncoding != want {
-		t.Errorf("the proxy didn't keep the header of `Content-Encoding: gzip`, want: %s, got: %s", want, receivedHeaderContentEncoding)
-	}
+	assert.Equal(t, receivedHeaderContentEncoding, "gzip")
 
 	var wantBody bytes.Buffer
 	g = gzip.NewWriter(&wantBody)
 	g.Write([]byte(`{"body": "content"}`))
 	g.Close()
 
-	if !bytes.Equal(receivedBody, wantBody.Bytes()) {
-		t.Errorf("the proxy didn't keep the body as is when forwarding gzipped body to the target.")
-	}
+	// t.Errorf("the proxy didn't keep the body as is when forwarding gzipped body to the target.")
+	assert.Equal(t, receivedBody, wantBody.Bytes())
 }
 
 func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
@@ -254,10 +234,11 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 			},
 		},
 	}
-	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
-		Targets: rpcGatewayConfig.Targets,
-		Config:  rpcGatewayConfig.HealthChecks,
-	})
+	healthcheckManager := NewHealthcheckManager(
+		HealthcheckManagerConfig{
+			Targets: rpcGatewayConfig.Targets,
+			Config:  rpcGatewayConfig.HealthChecks,
+		})
 
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager so the
 	// no target will be tainted or marked as unhealthy by the
@@ -268,21 +249,13 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest("POST", "/", requestBody)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
 
 	handler.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("server returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	want := `{"this_is": "body"}`
-	if rr.Body.String() != want {
-		t.Errorf("server returned unexpected body: got '%v' want '%v'", rr.Body.String(), want)
-	}
+	assert.Equal(t, rr.Code, http.StatusOK)
+	assert.Equal(t, rr.Body.String(), `{"this_is": "body"}`)
 }

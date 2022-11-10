@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/go-http-utils/headers"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -98,7 +99,7 @@ func NewHealthchecker(config RPCHealthcheckerConfig) (Healthchecker, error) {
 		return nil, err
 	}
 
-	client.SetHeader("User-Agent", userAgent)
+	client.SetHeader(headers.UserAgent, userAgent)
 
 	healthchecker := &RPCHealthchecker{
 		client:               client,

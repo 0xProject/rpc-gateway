@@ -5,12 +5,13 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/0xProject/rpc-gateway/internal/util"
 	toxiproxy "github.com/Shopify/toxiproxy/client"
+	"github.com/go-http-utils/headers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -92,7 +93,7 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	// config string
 	var tpl bytes.Buffer
-	tu := TestURL{"http://0.0.0.0:9991", "https://cloudflare-eth.com"}
+	tu := TestURL{"http://0.0.0.0:9991", util.Getenv("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com")}
 	tmpl, err := template.New("test").Parse(rpcGatewayConfig)
 	assert.Nil(t, err)
 
@@ -100,8 +101,6 @@ func TestRpcGatewayFailover(t *testing.T) {
 	assert.Nil(t, err)
 
 	configString := tpl.String()
-
-	t.Log(configString)
 
 	config, err := NewRPCGatewayFromConfigString(configString)
 	assert.Nil(t, err)
@@ -117,10 +116,8 @@ func TestRpcGatewayFailover(t *testing.T) {
 		MaxConnsPerHost: 1,
 	}
 
-	t.Logf("gateway serving from: %s", gs.URL)
-
 	req, _ := http.NewRequest("POST", gs.URL, bytes.NewBufferString(``))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(headers.ContentType, "application/json")
 	req.ContentLength = int64(len(rpcRequestBody))
 
 	res, err := gsClient.Do(req)
@@ -129,12 +126,5 @@ func TestRpcGatewayFailover(t *testing.T) {
 	defer res.Body.Close()
 
 	assert.Equal(t, http.StatusOK, res.StatusCode)
-
-	bodyContent, _ := io.ReadAll(res.Body)
-
-	t.Log("Response from RPC gateway:")
-	t.Logf("%s", bodyContent)
-
-	err = gateway.Stop(context.TODO())
-	assert.Nil(t, err)
+	assert.NoError(t, gateway.Stop(context.TODO()))
 }

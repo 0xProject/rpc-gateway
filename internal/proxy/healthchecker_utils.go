@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/go-http-utils/headers"
 )
 
 type JSONRPCResponse struct {
@@ -49,8 +51,8 @@ func performGasLeftCall(ctx context.Context, client *http.Client, url string) (u
 	requestBody := bytes.NewBuffer(gasLeftCallRaw)
 	request, err := http.NewRequestWithContext(ctx, "POST", url, requestBody)
 
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Set("User-Agent", userAgent)
+	request.Header.Add(headers.ContentType, "application/json")
+	request.Header.Set(headers.UserAgent, userAgent)
 
 	if err != nil {
 		return 0, err

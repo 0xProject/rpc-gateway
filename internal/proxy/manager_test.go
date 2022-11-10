@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/0xProject/rpc-gateway/internal/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,7 +19,7 @@ func TestHealthcheckManager(t *testing.T) {
 				Name: "Primary",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
-						URL: "https://cloudflare-eth.com",
+						URL: util.Getenv("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com"),
 					},
 				},
 			},
@@ -26,7 +27,7 @@ func TestHealthcheckManager(t *testing.T) {
 				Name: "StandBy",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
-						URL: "https://cloudflare-eth.com",
+						URL: util.Getenv("RPC_GATEWAY_NODE_URL_2", "https://rpc.ankr.com/eth"),
 					},
 				},
 			},
@@ -43,15 +44,9 @@ func TestHealthcheckManager(t *testing.T) {
 	ctx := context.TODO()
 	go manager.Start(ctx)
 
-	nextIdx := manager.GetNextHealthyTargetIndex()
-	assert.Zero(t, nextIdx)
-
 	time.Sleep(1 * time.Second)
 
 	manager.TaintTarget("Primary")
-
-	nextIdx = manager.GetNextHealthyTargetIndex()
-	assert.Equal(t, 1, nextIdx)
 
 	manager.Stop(ctx)
 }
@@ -65,7 +60,7 @@ func TestGetNextHealthyTargetIndexExcluding(t *testing.T) {
 				Name: "Primary",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
-						URL: "https://cloudflare-eth.com",
+						URL: util.Getenv("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com"),
 					},
 				},
 			},

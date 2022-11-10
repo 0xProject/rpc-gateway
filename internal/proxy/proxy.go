@@ -3,22 +3,15 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"strconv"
-	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/zap"
 )
-
-type HTTPTarget struct {
-	Config TargetConfig
-	Proxy  *httputil.ReverseProxy
-}
 
 type Proxy struct {
 	config             Config
@@ -26,7 +19,6 @@ type Proxy struct {
 	healthcheckManager *HealthcheckManager
 
 	metricResponseTime   *prometheus.HistogramVec
-	metricRequestErrors  *prometheus.CounterVec
 	metricResponseStatus *prometheus.CounterVec
 }
 
@@ -57,165 +49,79 @@ func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy
 				"provider",
 				"method",
 			}),
-		metricRequestErrors: promauto.NewCounterVec(
+		metricResponseStatus: promauto.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "zeroex_rpc_gateway_request_errors_handled_total",
-				Help: "The total number of request errors handled by gateway",
+				Name: "zeroex_rpc_gateway_target_response_status_total",
+				Help: "Total number of responses with a statuscode label",
 			}, []string{
 				"provider",
-				"type",
+				"status_code",
 			}),
-		metricResponseStatus: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "zeroex_rpc_gateway_target_response_status_total",
-			Help: "Total number of responses with a statuscode label",
-		}, []string{
-			"provider",
-			"status_code",
-		}),
 	}
 
-	for index, target := range proxy.config.Targets {
-		if err := proxy.AddTarget(target, uint(index)); err != nil {
-			panic(err)
+	for _, target := range proxy.config.Targets {
+		t := &HTTPTarget{
+			Config: target,
+			ClientOptions: HTTPTargetClientOptions{
+				Timeout: proxy.config.Proxy.UpstreamTimeout,
+			},
 		}
+		proxy.targets = append(proxy.targets, t)
 	}
 
 	return proxy
 }
 
-func (h *Proxy) doModifyResponse(config TargetConfig) func(*http.Response) error {
-	return func(resp *http.Response) error {
-		h.metricResponseStatus.WithLabelValues(config.Name, strconv.Itoa(resp.StatusCode)).Inc()
-
-		switch {
-		// Here's the thing. A different provider may response with a
-		// different status code for the same query.  e.g. call for
-		// a block that does not exist, Alchemy will serve HTTP 400
-		// where Infura will serve HTTP 200.  Both of these responses
-		// hold a concrete error in jsonrpc message.
-		//
-		// Having this in mind, we may consider a provider unreliable
-		// upon these events:
-		//  - HTTP 5xx responses
-		//  - Cannot make a connection after X of retries.
-		//
-		// Everything else, as long as it's jsonrpc payload should be
-		// considered as successful response.
-		//
-		case resp.StatusCode == http.StatusTooManyRequests:
-			// this code generates a fallback to backup provider.
-			//
-			zap.L().Warn("rate limited", zap.String("provider", config.Name))
-
-			return errors.New("rate limited")
-
-		case resp.StatusCode >= http.StatusInternalServerError:
-			// this code generates a fallback to backup provider.
-			//
-			zap.L().Warn("server error", zap.String("provider", config.Name))
-
-			return errors.New("server error")
-		}
-
-		return nil
-	}
+func (h *Proxy) hasError(r *http.Response) bool {
+	return r.StatusCode == http.StatusTooManyRequests || r.StatusCode >= http.StatusInternalServerError
 }
 
-func (h *Proxy) doErrorHandler(config TargetConfig, index uint) func(http.ResponseWriter, *http.Request, error) {
-	return func(w http.ResponseWriter, r *http.Request, e error) {
-		// The client canceled the request (e.g. 0x API has a 5s timeout for RPC request)
-		// we stop here as it doesn't make sense to retry/reroute anymore.
-		// Also, we don't want to observe a client-canceled request as a failure
-		if errors.Is(e, context.Canceled) {
-			h.metricRequestErrors.WithLabelValues(config.Name, "client_closed_connection").Inc()
+func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// You cannot read request body more than once. In case you do without
+	// preserving the copy, you will find yourself with empty body.
+	// Bazinga.
+	//
+	body := &bytes.Buffer{}
+	if _, err := io.Copy(body, r.Body); err != nil {
+		http.Error(w,
+			http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+
+	for _, target := range h.targets {
+		if errors.Is(r.Context().Err(), context.Canceled) {
+			return
+		}
+
+		if !h.healthcheckManager.IsTargetHealthy(target.Config.Name) {
+			continue
+		}
+
+		c, cancel := context.WithTimeout(context.Background(), h.config.Proxy.UpstreamTimeout)
+		defer cancel()
+
+		r.Body = io.NopCloser(bytes.NewBuffer(body.Bytes()))
+
+		resp, err := target.Do(c, r)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+
+		h.metricResponseStatus.WithLabelValues(
+			target.Config.Name, strconv.Itoa(resp.StatusCode)).Inc()
+
+		if h.hasError(resp) {
+			continue
+		}
+
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 
 			return
 		}
 
-		// Workaround to reserve request body in ReverseProxy.ErrorHandler see
-		// more here: https://github.com/golang/go/issues/33726
-		//
-		if buf, ok := r.Context().Value("bodybuf").(*bytes.Buffer); ok {
-			r.Body = io.NopCloser(buf)
-		}
-
-		zap.L().Warn("handling a failed request", zap.String("provider", config.Name), zap.Error(e))
-
-		// route the request to a different target
-		h.metricRequestErrors.WithLabelValues(config.Name, "rerouted").Inc()
-		visitedTargets := GetVisitedTargetsFromContext(r)
-
-		// add the current target to the VisitedTargets slice to exclude it when selecting
-		// the next target
-		ctx := context.WithValue(r.Context(), VisitedTargets, append(visitedTargets, index))
-
-		// adding the targetname in case it errors out and needs to be
-		// used in metrics in ServeHTTP.
-		ctx = context.WithValue(ctx, TargetName, config.Name)
-
-		h.ServeHTTP(w, r.WithContext(ctx))
-	}
-}
-
-func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
-	proxy, err := NewReverseProxy(target, h.config)
-	if err != nil {
-		return err
-	}
-
-	// NOTE: any error returned from ModifyResponse will be handled by
-	// ErrorHandler
-	// proxy.ModifyResponse = h.doModifyResponse(config)
-	//
-	proxy.ModifyResponse = h.doModifyResponse(target) // nolint:bodyclose
-	proxy.ErrorHandler = h.doErrorHandler(target, index)
-
-	h.targets = append(
-		h.targets,
-		&HTTPTarget{
-			Config: target,
-			Proxy:  proxy,
-		})
-
-	return nil
-}
-
-func (h *Proxy) GetNextTarget() *HTTPTarget {
-	idx := h.healthcheckManager.GetNextHealthyTargetIndex()
-
-	if idx < 0 {
-		return nil
-	}
-
-	return h.targets[idx]
-}
-
-func (h *Proxy) GetNextTargetExcluding(indexes []uint) *HTTPTarget {
-	idx := h.healthcheckManager.GetNextHealthyTargetIndexExcluding(indexes)
-
-	if idx < 0 {
-		return nil
-	}
-
-	return h.targets[idx]
-}
-
-func (h *Proxy) GetNextTargetName() string {
-	return h.GetNextTarget().Config.Name
-}
-
-func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	visitedTargets := GetVisitedTargetsFromContext(r)
-
-	peer := h.GetNextTargetExcluding(visitedTargets)
-	if peer != nil {
-		start := time.Now()
-		peer.Proxy.ServeHTTP(w, r)
-		duration := time.Since(start)
-		h.metricResponseTime.WithLabelValues(peer.Config.Name, r.Method).Observe(duration.Seconds())
-
 		return
 	}
 
-	http.Error(w, "Service not available", http.StatusServiceUnavailable)
+	http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 }

@@ -157,17 +157,6 @@ func (h *HealthcheckManager) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (h *HealthcheckManager) GetTargetIndexByName(name string) int {
-	for idx, healthChecker := range h.healthcheckers {
-		if healthChecker.Name() == name {
-			return idx
-		}
-	}
-
-	zap.L().Error("tried to access a non-existing Healthchecker", zap.String("name", name))
-	return 0
-}
-
 func (h *HealthcheckManager) GetTargetByName(name string) Healthchecker {
 	for _, healthChecker := range h.healthcheckers {
 		if healthChecker.Name() == name {
