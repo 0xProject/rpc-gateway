@@ -9,7 +9,7 @@ require (
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	go.uber.org/zap v1.23.0
 	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
 	gopkg.in/yaml.v2 v2.4.0
