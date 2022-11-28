@@ -9,7 +9,7 @@ COPY . .
 
 RUN go build -o rpc-gateway cmd/rpcgateway/main.go
 
-FROM alpine:3.16
+FROM alpine:3.17
 
 RUN apk add --update-cache --no-cache \
         ca-certificates
