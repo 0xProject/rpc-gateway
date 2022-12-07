@@ -39,8 +39,6 @@ func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy
 				Name: "zeroex_rpc_gateway_request_duration_seconds",
 				Help: "Histogram of response time for Gateway in seconds",
 				Buckets: []float64{
-					.005,
-					.01,
 					.025,
 					.05,
 					.1,
@@ -50,6 +48,10 @@ func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy
 					2.5,
 					5,
 					10,
+					15,
+					20,
+					25,
+					30,
 				},
 			}, []string{
 				"provider",
