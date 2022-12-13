@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"io"
 	"net"
 	"net/http"
@@ -56,6 +57,9 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 		return errors.New("cannot read body")
 	}
 
+	// Log requests for performance checks.
+	//
+
 	r.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// Here's an interesting fact. There's no data in buf, until a call
@@ -78,7 +82,14 @@ func doGunzip(r *http.Request) (io.Reader, error) {
 	var buf bytes.Buffer
 	var body io.Reader
 
-	uncompressed, err := gzip.NewReader(r.Body)
+	content, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "body read failed")
+	}
+
+	zap.L().Warn("request", zap.String("eth_call", base64.StdEncoding.EncodeToString(content)))
+
+	uncompressed, err := gzip.NewReader(bytes.NewReader(content))
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot decompress the data")
 	}
