@@ -2,12 +2,14 @@ package rpcgateway
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	toxiproxy "github.com/Shopify/toxiproxy/client"
@@ -23,7 +25,7 @@ metrics:
 proxy:
   port: 3000 # port for RPC gateway
   upstreamTimeout: "200m" # when is a request considered timed out
-  allowedNumberOfRetriesPerTarget: 2 # The number of retries within the same RPC target for a single request
+  allowedNumberOfRetriesPerTarget: 0 # The number of retries within the same RPC target for a single request
   retryDelay: "10ms" # delay between retries
 
 healthChecks:
@@ -125,7 +127,151 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	t.Logf("gateway serving from: %s", gs.URL)
 
-	req, _ := http.NewRequest("POST", gs.URL, bytes.NewBufferString(``))
+	req, _ := http.NewRequest("POST", gs.URL, strings.NewReader(rpcRequestBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.ContentLength = int64(len(rpcRequestBody))
+
+	res, err := gsClient.Do(req)
+	assert.Nil(t, err)
+
+	defer res.Body.Close()
+
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+
+	bodyContent, _ := io.ReadAll(res.Body)
+
+	t.Log("Response from RPC gateway:")
+	t.Logf("%s", bodyContent)
+
+	err = gateway.Stop(context.TODO())
+	assert.Nil(t, err)
+}
+
+func TestRpcGatewayFailoverWhenUncompressedJSONRPCContainsError(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	// initial setup
+	logger, _ := zap.NewDevelopment()
+	zap.ReplaceGlobals(logger)
+
+	// RPC backends setup
+	onReq := func(r *http.Request) {
+		fmt.Println("got request")
+	}
+	rpcBackend := &responder{
+		value:     []byte(`{"jsonrpc":"2.0","id":1,"error": {"code": -32601, "message": "Method not found"}, "id": "1"}`),
+		onRequest: onReq,
+	}
+	ts := httptest.NewServer(rpcBackend)
+	defer ts.Close()
+
+	// config string
+	var tpl bytes.Buffer
+	tu := TestURL{fmt.Sprintf("http://%s", ts.URL[7:]), "https://rpc.ankr.com/eth"}
+	tmpl, err := template.New("test").Parse(rpcGatewayConfig)
+	assert.Nil(t, err)
+
+	err = tmpl.Execute(&tpl, tu)
+	assert.Nil(t, err)
+
+	configString := tpl.String()
+
+	config, err := NewRPCGatewayFromConfigString(configString)
+	assert.Nil(t, err)
+
+	gateway := NewRPCGateway(*config)
+	go gateway.Start(context.TODO())
+	gs := httptest.NewServer(gateway)
+
+	gsClient := gs.Client()
+	// We limit the connection pool to have a single sourceIP on localhost
+	gsClient.Transport = &http.Transport{
+		MaxIdleConns:    1,
+		MaxConnsPerHost: 1,
+	}
+
+	t.Logf("gateway serving from: %s", gs.URL)
+
+	req, _ := http.NewRequest("POST", gs.URL, strings.NewReader(rpcRequestBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.ContentLength = int64(len(rpcRequestBody))
+
+	res, err := gsClient.Do(req)
+	assert.Nil(t, err)
+
+	defer res.Body.Close()
+
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+
+	bodyContent, _ := io.ReadAll(res.Body)
+
+	t.Log("Response from RPC gateway:")
+	t.Logf("%s", bodyContent)
+
+	err = gateway.Stop(context.TODO())
+	assert.Nil(t, err)
+}
+
+func TestRpcGatewayFailoverWhenCompressedJSONRPCContainsError(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	// initial setup
+	logger, _ := zap.NewDevelopment()
+	zap.ReplaceGlobals(logger)
+
+	// RPC backends setup
+	//
+	onReq := func(r *http.Request) {
+		fmt.Println("got request")
+	}
+
+	onResponse := func(w http.ResponseWriter) {
+		w.Header().Add("Content-Encoding", "gzip")
+	}
+
+	var payload bytes.Buffer
+	data := gzip.NewWriter(&payload)
+
+	_, err := data.Write([]byte(`{"jsonrpc":"2.0","id":1,"error": {"code": -32601, "message": "Method not found"}, "id": "1"}`))
+	assert.Nil(t, err)
+	assert.Nil(t, data.Close())
+
+	rpcBackend := &responder{
+		value:      payload.Bytes(),
+		onRequest:  onReq,
+		onResponse: onResponse,
+	}
+	ts := httptest.NewServer(rpcBackend)
+	defer ts.Close()
+
+	// config string
+	var tpl bytes.Buffer
+	tu := TestURL{fmt.Sprintf("http://%s", ts.URL[7:]), "https://rpc.ankr.com/eth"}
+	tmpl, err := template.New("test").Parse(rpcGatewayConfig)
+	assert.Nil(t, err)
+
+	err = tmpl.Execute(&tpl, tu)
+	assert.Nil(t, err)
+
+	configString := tpl.String()
+
+	config, err := NewRPCGatewayFromConfigString(configString)
+	assert.Nil(t, err)
+
+	gateway := NewRPCGateway(*config)
+	go gateway.Start(context.TODO())
+	gs := httptest.NewServer(gateway)
+
+	gsClient := gs.Client()
+	// We limit the connection pool to have a single sourceIP on localhost
+	gsClient.Transport = &http.Transport{
+		MaxIdleConns:    1,
+		MaxConnsPerHost: 1,
+	}
+
+	t.Logf("gateway serving from: %s", gs.URL)
+
+	req, _ := http.NewRequest("POST", gs.URL, strings.NewReader(rpcRequestBody))
 	req.Header.Set("Content-Type", "application/json")
 	req.ContentLength = int64(len(rpcRequestBody))
 

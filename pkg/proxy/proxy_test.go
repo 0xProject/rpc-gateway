@@ -18,7 +18,7 @@ import (
 func createConfig() Config {
 	return Config{
 		Proxy: ProxyConfig{
-			AllowedNumberOfRetriesPerTarget: 3,
+			AllowedNumberOfRetriesPerTarget: 0,
 			RetryDelay:                      0,
 			UpstreamTimeout:                 0,
 		},
