@@ -2,13 +2,17 @@ package proxy
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/INFURA/go-ethlibs/jsonrpc"
+	"github.com/pkg/errors"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -83,6 +87,58 @@ func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy
 	return proxy
 }
 
+func (h *Proxy) doJSONRPCValidation(resp *http.Response) error {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Wrap(err, "read response body failed")
+	}
+
+	if err := resp.Body.Close(); err != nil {
+		return errors.Wrap(err, "response body close failed")
+	}
+
+	// Otherwise, we will return empty body.
+	//
+	resp.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	// In case node provider support response compression.
+	// In most of the cases, they don't.
+	//
+	var content []byte
+
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		uncompressed, err := gzip.NewReader(bytes.NewBuffer(body))
+		if err != nil {
+			return errors.Wrap(err, "body decompress failed")
+		}
+		content, err = io.ReadAll(uncompressed)
+		if err != nil {
+			return errors.Wrap(err, "read compressed data failed")
+		}
+	} else {
+		content = body
+	}
+
+	data, err := jsonrpc.Unmarshal(content)
+	if err != nil {
+		return errors.Wrap(err, "invalid syntax")
+	}
+
+	switch data := data.(type) {
+	case *jsonrpc.RawResponse:
+		// This is optimistic, we may handle it differently after refactor.
+		if data.Error != nil {
+			return errors.New("node provider error")
+		}
+	default:
+		// here we are, where the payload is not parseable.
+		//
+		return errors.New("unrecognized message type")
+	}
+
+	return nil
+}
+
 func (h *Proxy) doModifyResponse(config TargetConfig) func(*http.Response) error {
 	return func(resp *http.Response) error {
 		h.metricResponseStatus.WithLabelValues(config.Name, strconv.Itoa(resp.StatusCode)).Inc()
@@ -116,6 +172,10 @@ func (h *Proxy) doModifyResponse(config TargetConfig) func(*http.Response) error
 
 			return errors.New("server error")
 		default:
+			if err := h.doJSONRPCValidation(resp); err != nil {
+				return errors.Wrap(err, "json rpc validation failed")
+			}
+
 			h.healthcheckManager.ObserveSuccess(config.Name)
 		}
 
@@ -200,11 +260,19 @@ func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
 func (h *Proxy) GetNextTarget() *HTTPTarget {
 	idx := h.healthcheckManager.GetNextHealthyTargetIndex()
 
+	if idx < 0 {
+		return nil
+	}
+
 	return h.targets[idx]
 }
 
 func (h *Proxy) GetNextTargetExcluding(indexes []uint) *HTTPTarget {
 	idx := h.healthcheckManager.GetNextHealthyTargetIndexExcluding(indexes)
+
+	if idx < 0 {
+		return nil
+	}
 
 	return h.targets[idx]
 }
