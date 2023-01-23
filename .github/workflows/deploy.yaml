@@ -46,7 +46,7 @@ jobs:
       - name: Update GitOps repo
         id: update_gitops_repo
         run: |
-          cd 'clusters/main-cluster/kubernetes/${{ steps.validate_input.outputs.environment }}'
+          cd 'clusters/prod-services-blue/${{ steps.validate_input.outputs.environment }}'
           # Read current image tag
           current_image_tag=$(yq e '.images[] | select(.name | contains("rpc-gateway")) | .newTag' kustomization.yaml)
 
