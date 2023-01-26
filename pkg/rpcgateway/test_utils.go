@@ -5,9 +5,8 @@ import (
 )
 
 type responder struct {
-	value      []byte
-	onRequest  func(*http.Request)
-	onResponse func(http.ResponseWriter)
+	value     []byte
+	onRequest func(*http.Request)
 }
 
 func (r *responder) SetValue(value []byte) {
@@ -18,18 +17,7 @@ func (r *responder) OnRequest(function func(*http.Request)) {
 	r.onRequest = function
 }
 
-func (r *responder) OnResponse(function func(http.ResponseWriter)) {
-	r.onResponse = function
-}
-
 func (r *responder) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if r.onRequest != nil {
-		r.onRequest(req)
-	}
-
-	if r.onResponse != nil {
-		r.onResponse(w)
-	}
-
+	r.onRequest(req)
 	w.Write(r.value)
 }

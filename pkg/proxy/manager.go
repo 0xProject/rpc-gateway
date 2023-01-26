@@ -231,7 +231,7 @@ func (h *HealthcheckManager) GetNextHealthyTargetIndex() int {
 
 	// no healthy targets, we down:(
 	zap.L().Error("no more healthy targets")
-	return -1
+	return 0
 }
 
 func (h *HealthcheckManager) GetNextHealthyTargetIndexExcluding(excludedIdx []uint) int {
@@ -251,8 +251,7 @@ func (h *HealthcheckManager) GetNextHealthyTargetIndexExcluding(excludedIdx []ui
 
 	// no healthy targets, we down:(
 	zap.L().Warn("no more healthy targets")
-
-	return -1
+	return 0
 }
 
 func (h *HealthcheckManager) GetRollingWindowByName(name string) *rollingwindow.RollingWindow {
