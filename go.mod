@@ -3,7 +3,6 @@ module github.com/0xProject/rpc-gateway
 go 1.19
 
 require (
-	github.com/INFURA/go-ethlibs v0.0.0-20220727233241-fb9d65fce000
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/gorilla/mux v1.8.0
