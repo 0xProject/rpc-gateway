@@ -355,3 +355,78 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 		t.Errorf("server returned unexpected body: got '%v' want '%v'", rr.Body.String(), want)
 	}
 }
+
+func TestHttpResponseCompressionHeader(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	var receivedHeaderContentEncoding string
+	var receivedHeaderAcceptEncoding string
+	var receivedBody []byte
+	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeaderContentEncoding = r.Header.Get("Content-Encoding")
+		receivedHeaderAcceptEncoding = r.Header.Get("Accept-Encoding")
+		receivedBody, _ = io.ReadAll(r.Body)
+		w.Write([]byte("OK"))
+	}))
+	defer fakeRPC1Server.Close()
+	rpcGatewayConfig := createConfig()
+	rpcGatewayConfig.Targets = []TargetConfig{
+		{
+			Name: "Server1",
+			Connection: TargetConfigConnection{
+				HTTP: TargetConnectionHTTP{
+					URL:                 fakeRPC1Server.URL,
+					Compression:         true,
+					ResponseCompression: true,
+				},
+			},
+		},
+	}
+
+	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
+		Targets: rpcGatewayConfig.Targets,
+		Config:  rpcGatewayConfig.HealthChecks,
+	})
+	// Setup HttpFailoverProxy but not starting the HealthCheckManager
+	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
+	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
+
+	var buf bytes.Buffer
+	g := gzip.NewWriter(&buf)
+	_, err := g.Write([]byte(`{"body": "content"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = g.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", "/", &buf)
+	req.Header.Add("Content-Encoding", "gzip")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
+	handler.ServeHTTP(rr, req)
+
+	want := "gzip"
+	if receivedHeaderContentEncoding != want {
+		t.Errorf("the proxy didn't keep the header of `Content-Encoding: gzip`, want: %s, got: %s", want, receivedHeaderContentEncoding)
+	}
+
+	if receivedHeaderAcceptEncoding != want {
+		t.Errorf("the proxy didn't keep the header of `Accept-Encoding: gzip`, want: %s, got: %s", want, receivedHeaderAcceptEncoding)
+	}
+
+	var wantBody bytes.Buffer
+	g = gzip.NewWriter(&wantBody)
+	g.Write([]byte(`{"body": "content"}`))
+	g.Close()
+
+	if !bytes.Equal(receivedBody, wantBody.Bytes()) {
+		t.Errorf("the proxy didn't keep the body as is when forwarding gzipped body to the target.")
+	}
+}

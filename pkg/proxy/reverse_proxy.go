@@ -45,6 +45,10 @@ func doProcessRequest(r *http.Request, config TargetConfig) error {
 		body = io.TeeReader(r.Body, &buf)
 	}
 
+	if config.Connection.HTTP.ResponseCompression {
+		r.Header.Add("Accept-Encoding", "gzip")
+	}
+
 	// I don't like so much but the refactor is coming up soon!
 	//
 	// This is nothing more than ugly a workaround.

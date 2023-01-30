@@ -28,8 +28,9 @@ type ProxyConfig struct { // nolint:revive
 }
 
 type TargetConnectionHTTP struct {
-	URL         string `yaml:"url"`
-	Compression bool   `yaml:"compression"`
+	URL                 string `yaml:"url"`
+	Compression         bool   `yaml:"compression"`
+	ResponseCompression bool   `yaml:"responseCompression"`
 }
 
 type TargetConfigConnection struct {
