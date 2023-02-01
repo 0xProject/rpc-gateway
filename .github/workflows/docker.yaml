@@ -39,13 +39,13 @@ jobs:
         if: ${{ github.actor != 'dependabot[bot]' }}
       - uses: docker/setup-qemu-action@v2
       - uses: docker/setup-buildx-action@v2
-      - uses: docker/build-push-action@v3
+      - uses: docker/build-push-action@v4
         with:
          push: ${{ github.ref == 'refs/heads/main' }}
          platforms: linux/amd64,linux/arm64
          tags: ${{ secrets.REGISTRY }}/rpc-gateway:${{ github.sha }}
         if: ${{ github.actor != 'dependabot[bot]' }}
-      - uses: docker/build-push-action@v3
+      - uses: docker/build-push-action@v4
         with:
          push: false
          platforms: linux/amd64,linux/arm64
