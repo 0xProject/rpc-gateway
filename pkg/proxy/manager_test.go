@@ -161,3 +161,45 @@ func TestHealthcheckManagerRollingWindowTaintDisabled(t *testing.T) {
 
 	manager.Stop(ctx)
 }
+
+func TestGetNextHealthyTargetIndexExcluding(t *testing.T) {
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	manager := NewHealthcheckManager(HealthcheckManagerConfig{
+		Targets: []TargetConfig{
+			{
+				Name: "AnkrOne",
+				Connection: TargetConfigConnection{
+					HTTP: TargetConnectionHTTP{
+						URL: "https://rpc.ankr.com/eth",
+					},
+				},
+			},
+		},
+
+		Config: HealthCheckConfig{
+			Interval:                      200 * time.Millisecond,
+			Timeout:                       2000 * time.Millisecond,
+			FailureThreshold:              1,
+			SuccessThreshold:              1,
+			RollingWindowTaintEnabled:     true,
+			RollingWindowSize:             2,
+			RollingWindowFailureThreshold: 0.9,
+		},
+	})
+
+	ctx := context.TODO()
+
+	go manager.Start(ctx)
+	defer manager.Stop(ctx)
+
+	manager.GetTargetByName("AnkrOne").Taint()
+
+	assert.Equal(t, -1, manager.GetNextHealthyTargetIndexExcluding([]uint{}))
+
+	assert.Equal(t, -1, manager.GetNextHealthyTargetIndexExcluding([]uint{0}))
+
+	manager.GetTargetByName("AnkrOne").RemoveTaint()
+
+	assert.Equal(t, 0, manager.GetNextHealthyTargetIndexExcluding([]uint{}))
+}

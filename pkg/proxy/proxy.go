@@ -200,11 +200,19 @@ func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
 func (h *Proxy) GetNextTarget() *HTTPTarget {
 	idx := h.healthcheckManager.GetNextHealthyTargetIndex()
 
+	if idx < 0 {
+		return nil
+	}
+
 	return h.targets[idx]
 }
 
 func (h *Proxy) GetNextTargetExcluding(indexes []uint) *HTTPTarget {
 	idx := h.healthcheckManager.GetNextHealthyTargetIndexExcluding(indexes)
+
+	if idx < 0 {
+		return nil
+	}
 
 	return h.targets[idx]
 }
