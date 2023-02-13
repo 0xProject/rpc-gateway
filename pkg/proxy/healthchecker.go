@@ -174,15 +174,17 @@ func (h *RPCHealthchecker) checkAndSetBlockNumberHealth() {
 	ctx, cancel := context.WithTimeout(ctx, h.config.Timeout)
 	defer cancel()
 
+	// TODO
+	//
+	// This should be moved to a different place, because it does not do a
+	// health checking but it provides additional context.
+
 	blockNumber, err := h.checkBlockNumber(ctx)
-	h.mu.Lock()
-	defer h.mu.Unlock()
 	if err != nil {
-		h.isHealthy = false
 		return
 	}
+
 	h.blockNumber = blockNumber
-	h.isHealthy = true
 }
 
 func (h *RPCHealthchecker) checkAndSetGasLeftHealth() {
