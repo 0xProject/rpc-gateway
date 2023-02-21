@@ -12,13 +12,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GOLANGVERSION: 1.20.1
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.19.4
+          go-version: ${{ env.GOLANGVERSION }}
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
@@ -39,7 +42,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.19.4
+          go-version: ${{ env.GOLANGVERSION }}
       - uses: actions/checkout@v3
       - uses: 0xProject/setup-govulncheck@v1
       - run: govulncheck ./...
@@ -49,7 +52,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.19.4
+          go-version: ${{ env.GOLANGVERSION }}
       - uses: actions/checkout@v3
       - uses: golangci/golangci-lint-action@v3
         with:
