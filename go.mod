@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
-	github.com/ethereum/go-ethereum v1.11.4
+	github.com/ethereum/go-ethereum v1.11.5
 	github.com/gorilla/mux v1.8.0
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
 	github.com/pkg/errors v0.9.1
@@ -26,6 +26,7 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/holiman/uint256 v1.2.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
