@@ -218,7 +218,7 @@ func (h *RPCHealthchecker) Start(ctx context.Context) {
 	}
 }
 
-func (h *RPCHealthchecker) Stop(ctx context.Context) error {
+func (h *RPCHealthchecker) Stop(_ context.Context) error {
 	// TODO: Additional cleanups?
 	return nil
 }
