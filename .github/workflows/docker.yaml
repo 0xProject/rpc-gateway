@@ -30,7 +30,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v3
-      - uses: aws-actions/configure-aws-credentials@v1
+      - uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWSROLE }}
           aws-region: ${{ secrets.AWSREGION }}
