@@ -19,7 +19,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOLANGVERSION }}
       - uses: actions/checkout@v3
@@ -40,7 +40,7 @@ jobs:
   vulncheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOLANGVERSION }}
       - uses: actions/checkout@v3
@@ -50,7 +50,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOLANGVERSION }}
       - uses: actions/checkout@v3
