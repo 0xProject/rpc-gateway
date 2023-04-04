@@ -48,7 +48,10 @@ func performGasLeftCall(ctx context.Context, client *http.Client, url string) (u
 
 	requestBody := bytes.NewBuffer(gasLeftCallRaw)
 	request, err := http.NewRequestWithContext(ctx, "POST", url, requestBody)
+
 	request.Header.Add("Content-Type", "application/json")
+	request.Header.Set("User-Agent", userAgent)
+
 	if err != nil {
 		return 0, err
 	}
