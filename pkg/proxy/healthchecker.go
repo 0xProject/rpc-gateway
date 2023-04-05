@@ -6,7 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -15,6 +16,10 @@ const (
 	MetricBlockNumber int = iota
 	MetricGasLimit
 	MetricResponseTime
+)
+
+const (
+	userAgent = "rpc-gateway-health-check"
 )
 
 type Healthchecker interface {
@@ -56,7 +61,7 @@ const (
 )
 
 type RPCHealthchecker struct {
-	client     *ethclient.Client
+	client     *rpc.Client
 	httpClient *http.Client
 	config     RPCHealthcheckerConfig
 
@@ -88,10 +93,12 @@ type RPCHealthchecker struct {
 }
 
 func NewHealthchecker(config RPCHealthcheckerConfig) (Healthchecker, error) {
-	client, err := ethclient.Dial(config.URL)
+	client, err := rpc.Dial(config.URL)
 	if err != nil {
 		return nil, err
 	}
+
+	client.SetHeader("User-Agent", userAgent)
 
 	healthchecker := &RPCHealthchecker{
 		client:               client,
@@ -124,8 +131,10 @@ func (h *RPCHealthchecker) SetMetric(i int, metric interface{}) {
 func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error) {
 	// First we check the block number reported by the node. This is later
 	// used to evaluate a single RPC node against others
+	var blockNumber hexutil.Uint64
+
 	start := time.Now()
-	blockNumber, err := h.client.BlockNumber(ctx)
+	err := h.client.CallContext(ctx, &blockNumber, "eth_blockNumber")
 	if err != nil {
 		zap.L().Warn("error fetching the block number", zap.Error(err), zap.String("name", h.config.Name))
 		return 0, err
@@ -137,9 +146,9 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 	if h.metricRPCProviderBlockNumber != nil {
 		h.metricRPCProviderBlockNumber.WithLabelValues(h.config.Name).Set(float64(blockNumber))
 	}
-	zap.L().Debug("fetched block", zap.Uint64("blockNumber", blockNumber), zap.String("rpcProvider", h.config.Name))
+	zap.L().Debug("fetched block", zap.Uint64("blockNumber", uint64(blockNumber)), zap.String("rpcProvider", h.config.Name))
 
-	return blockNumber, nil
+	return uint64(blockNumber), nil
 }
 
 // checkGasLimit performs an `eth_call` with a GasLeft.sol contract call. We also
