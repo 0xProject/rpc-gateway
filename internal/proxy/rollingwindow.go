@@ -1,6 +1,6 @@
 package proxy
 
-import "github.com/0xProject/rpc-gateway/pkg/rollingwindow"
+import "github.com/0xProject/rpc-gateway/internal/rollingwindow"
 
 type RollingWindowWrapper struct {
 	rollingWindow *rollingwindow.RollingWindow

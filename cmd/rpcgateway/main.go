@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/0xProject/rpc-gateway/pkg/metrics"
-	"github.com/0xProject/rpc-gateway/pkg/rpcgateway"
+	"github.com/0xProject/rpc-gateway/internal/metrics"
+	"github.com/0xProject/rpc-gateway/internal/rpcgateway"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
