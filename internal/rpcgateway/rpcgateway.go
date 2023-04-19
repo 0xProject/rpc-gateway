@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/0xProject/rpc-gateway/pkg/proxy"
+	"github.com/0xProject/rpc-gateway/internal/proxy"
 	"github.com/gorilla/mux"
 	"github.com/mwitkow/go-conntrack"
 	"github.com/prometheus/client_golang/prometheus"

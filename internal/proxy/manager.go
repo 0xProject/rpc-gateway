@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/0xProject/rpc-gateway/pkg/rollingwindow"
+	"github.com/0xProject/rpc-gateway/internal/rollingwindow"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
