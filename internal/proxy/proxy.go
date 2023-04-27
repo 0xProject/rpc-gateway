@@ -129,6 +129,8 @@ func (h *Proxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig
 		// we stop here as it doesn't make sense to retry/reroute anymore.
 		// Also, we don't want to observe a client-canceled request as a failure
 		if errors.Is(e, context.Canceled) {
+			h.metricRequestErrors.WithLabelValues(config.Name, "client_closed_connection").Inc()
+
 			return
 		}
 
