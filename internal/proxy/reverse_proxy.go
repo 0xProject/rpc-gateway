@@ -137,6 +137,7 @@ func NewReverseProxy(targetConfig TargetConfig, config Config) (*httputil.Revers
 		Proxy:                 http.ProxyFromEnvironment,
 		DialContext:           conntrackDialer,
 		ForceAttemptHTTP2:     true,
+		DisableKeepAlives:     targetConfig.Connection.HTTP.DisableKeepAlives,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       30 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
