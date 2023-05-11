@@ -1,6 +1,6 @@
 module github.com/0xProject/rpc-gateway
 
-go 1.19
+go 1.20
 
 require (
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
