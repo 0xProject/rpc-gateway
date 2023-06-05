@@ -47,6 +47,19 @@ linters:
 linters-settings:
   funlen:
     lines: 100
+  depguard:
+    rules:
+      main:
+        allow:
+          - "$gostd"
+          - github.com/0xProject/rpc-gateway
+          - github.com/Shopify/toxiproxy
+          - github.com/ethereum/go-ethereum
+          - github.com/gorilla/mux
+          - github.com/mwitkow/go-conntrack
+          - github.com/pkg/errors
+          - github.com/prometheus/client_golang
+          - github.com/stretchr/testify
 
 issues:
   max-same-issues: 0 # unlimited
