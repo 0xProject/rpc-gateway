@@ -11,9 +11,12 @@ import (
 	"github.com/0xProject/rpc-gateway/internal/proxy"
 	"github.com/gorilla/mux"
 	"github.com/mwitkow/go-conntrack"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/purini-to/zapmw"
+	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
+	"github.com/slok/go-http-metrics/middleware"
+	"github.com/slok/go-http-metrics/middleware/std"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/yaml.v2"
 )
 
@@ -21,9 +24,7 @@ type RPCGateway struct {
 	config             RPCGatewayConfig
 	httpFailoverProxy  *proxy.Proxy
 	healthcheckManager *proxy.HealthcheckManager
-
-	server                  *http.Server
-	metricRequestsProcessed *prometheus.CounterVec
+	server             *http.Server
 }
 
 func (r *RPCGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -81,7 +82,18 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 	)
 
 	r := mux.NewRouter()
-	r.Use(LoggingMiddleware())
+
+	r.Use(std.HandlerProvider("",
+		middleware.New(middleware.Config{
+			Recorder: metrics.NewRecorder(metrics.Config{}),
+		})),
+	)
+
+	r.Use(
+		zapmw.WithZap(zap.L()),
+		zapmw.Request(zapcore.InfoLevel, "request"),
+		zapmw.Recoverer(zapcore.ErrorLevel, "recover", zapmw.RecovererDefault),
+	)
 
 	srv := &http.Server{
 		Handler:           r,
@@ -95,20 +107,9 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 		httpFailoverProxy:  httpFailoverProxy,
 		healthcheckManager: healthcheckManager,
 		server:             srv,
-		metricRequestsProcessed: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "zeroex_rpc_gateway_requests_total",
-				Help: "The total number of processed requests by gateway",
-			}, []string{
-				"status_code",
-				"method",
-			}),
 	}
 
-	r.Use(RequestCounters(gateway.metricRequestsProcessed))
-
 	r.PathPrefix("/").Handler(httpFailoverProxy)
-	r.PathPrefix("").Handler(httpFailoverProxy)
 
 	return gateway
 }
