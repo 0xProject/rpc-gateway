@@ -3,13 +3,11 @@ package proxy
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -23,12 +21,10 @@ func createConfig() Config {
 			UpstreamTimeout:                 0,
 		},
 		HealthChecks: HealthCheckConfig{
-			Interval:                      0,
-			Timeout:                       0,
-			FailureThreshold:              0,
-			SuccessThreshold:              0,
-			RollingWindowSize:             100,
-			RollingWindowFailureThreshold: 0.9,
+			Interval:         0,
+			Timeout:          0,
+			FailureThreshold: 0,
+			SuccessThreshold: 0,
 		},
 		Targets: []TargetConfig{},
 	}
@@ -226,68 +222,6 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 
 	if !bytes.Equal(receivedBody, wantBody.Bytes()) {
 		t.Errorf("the proxy didn't keep the body as is when forwarding gzipped body to the target.")
-	}
-}
-
-func TestHttpFailoverProxyNotObserveFailureWhenClientCanceledRequest(t *testing.T) {
-	prometheus.DefaultRegisterer = prometheus.NewRegistry()
-
-	fakeRPC1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(100 * time.Millisecond) // The RPC Provider takes 100ms to reply
-		w.Write([]byte("OK"))
-	}))
-	defer fakeRPC1Server.Close()
-	rpcGatewayConfig := createConfig()
-	rpcGatewayConfig.Targets = []TargetConfig{
-		{
-			Name: "Server1",
-			Connection: TargetConfigConnection{
-				HTTP: TargetConnectionHTTP{
-					URL: fakeRPC1Server.URL,
-				},
-			},
-		},
-	}
-
-	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
-		Targets: rpcGatewayConfig.Targets,
-		Config:  rpcGatewayConfig.HealthChecks,
-	})
-	// Setup HttpFailoverProxy but not starting the HealthCheckManager
-	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
-
-	req, err := http.NewRequest("POST", "/", bytes.NewBufferString(`{}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Make one successful request
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(httpFailoverProxy.ServeHTTP)
-	handler.ServeHTTP(rr, req)
-
-	// Now create a new request that will be canceled by client
-	// before the proxy can respond
-	ctx, cancel := context.WithCancel(context.TODO())
-	req, err = http.NewRequest("POST", "/", bytes.NewBufferString(`{}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Mimic the client canceling the request after 50ms (mid-flight request)
-	req = req.WithContext(ctx)
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		cancel()
-	}()
-
-	rr = httptest.NewRecorder()
-	handler = http.HandlerFunc(httpFailoverProxy.ServeHTTP)
-	handler.ServeHTTP(rr, req)
-
-	rollingWindow := healthcheckManager.GetRollingWindowByName("Server1")
-	if len(rollingWindow.Window()) != 1 {
-		t.Errorf("the proxy observed a canceled request while it shouldn't")
 	}
 }
 

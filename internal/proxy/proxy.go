@@ -115,8 +115,6 @@ func (h *Proxy) doModifyResponse(config TargetConfig) func(*http.Response) error
 			zap.L().Warn("server error", zap.String("provider", config.Name))
 
 			return errors.New("server error")
-		default:
-			h.healthcheckManager.ObserveSuccess(config.Name)
 		}
 
 		return nil
@@ -144,7 +142,6 @@ func (h *Proxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig
 		}
 
 		zap.L().Warn("handling a failed request", zap.String("provider", config.Name), zap.Error(e))
-		h.healthcheckManager.ObserveFailure(config.Name)
 		if retries < h.config.Proxy.AllowedNumberOfRetriesPerTarget {
 			h.metricRequestErrors.WithLabelValues(config.Name, "retry").Inc()
 			// we add a configurable delay before resending request

@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/0xProject/rpc-gateway/internal/rollingwindow"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
@@ -18,10 +17,6 @@ type HealthcheckManagerConfig struct {
 
 type HealthcheckManager struct {
 	healthcheckers []Healthchecker
-	rollingWindows []*RollingWindowWrapper
-
-	requestFailureThreshold   float64
-	rollingWindowTaintEnabled bool
 
 	metricRPCProviderInfo        *prometheus.GaugeVec
 	metricRPCProviderStatus      *prometheus.GaugeVec
@@ -32,11 +27,8 @@ type HealthcheckManager struct {
 
 func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager {
 	healthCheckers := []Healthchecker{}
-	rollingWindows := []*RollingWindowWrapper{}
 
 	healthcheckManager := &HealthcheckManager{
-		requestFailureThreshold:   config.Config.RollingWindowFailureThreshold,
-		rollingWindowTaintEnabled: config.Config.RollingWindowTaintEnabled,
 		metricRPCProviderInfo: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "zeroex_rpc_gateway_provider_info",
@@ -110,11 +102,9 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 		}
 
 		healthCheckers = append(healthCheckers, healthchecker)
-		rollingWindows = append(rollingWindows, NewRollingWindowWrapper(target.Name, config.Config.RollingWindowSize))
 	}
 
 	healthcheckManager.healthcheckers = healthCheckers
-	healthcheckManager.rollingWindows = rollingWindows
 
 	return healthcheckManager
 }
@@ -127,25 +117,7 @@ func (h *HealthcheckManager) runLoop(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			h.checkForFailingRequests()
 			h.reportStatusMetrics()
-		}
-	}
-}
-
-func (h *HealthcheckManager) checkForFailingRequests() {
-	if !h.rollingWindowTaintEnabled {
-		return
-	}
-	for _, wrapper := range h.rollingWindows {
-		rollingWindow := wrapper.rollingWindow
-		if rollingWindow.HasEnoughObservations() {
-			responseSuccessRate := rollingWindow.Avg()
-			if responseSuccessRate < h.requestFailureThreshold {
-				zap.L().Warn("RPC Success Rate falls below threshold", zap.String("name", wrapper.Name), zap.Float64("responseSuccessRate", responseSuccessRate))
-				h.TaintTarget(wrapper.Name)
-				rollingWindow.Reset()
-			}
 		}
 	}
 }
@@ -252,24 +224,4 @@ func (h *HealthcheckManager) GetNextHealthyTargetIndexExcluding(excludedIdx []ui
 	// no healthy targets, we down:(
 	zap.L().Warn("no more healthy targets")
 	return -1
-}
-
-func (h *HealthcheckManager) GetRollingWindowByName(name string) *rollingwindow.RollingWindow {
-	for _, wrapper := range h.rollingWindows {
-		if wrapper.Name == name {
-			return wrapper.rollingWindow
-		}
-	}
-
-	panic("unknown rolling window")
-}
-
-func (h *HealthcheckManager) ObserveSuccess(name string) {
-	rollingWindow := h.GetRollingWindowByName(name)
-	rollingWindow.Observe(1)
-}
-
-func (h *HealthcheckManager) ObserveFailure(name string) {
-	rollingWindow := h.GetRollingWindowByName(name)
-	rollingWindow.Observe(0)
 }

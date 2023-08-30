@@ -81,10 +81,6 @@ healthChecks:
   timeout: "1s" # when should the timeout occur and considered unhealthy
   failureThreshold: 2 # how many failed checks until marked as unhealthy
   successThreshold: 1 # how many successes to be marked as healthy again
-  # Rolling windows are used by the healthmanager to mark certain targets as
-  # unhealthy if a failure rate is high.
-  rollingWindowSize: 1000 # how many requests should we be sliding over
-  rollingWindowFailureThreshold: 0.90 # If the request success rate falls below 90% mark target as tainted
 
 targets: # the order here determines the failover order
   - name: "Cloudflare"
