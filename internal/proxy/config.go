@@ -10,14 +10,6 @@ type HealthCheckConfig struct {
 	Timeout          time.Duration `yaml:"timeout"`
 	FailureThreshold uint          `yaml:"failureThreshold"`
 	SuccessThreshold uint          `yaml:"successThreshold"`
-
-	// Should the RollingWindow Taint be enabled
-	// Set this to false will disable marking the RPC as tainted
-	// when the error rate reaches the threshold
-	RollingWindowTaintEnabled bool `yaml:"rollingWindowTaintEnabled"`
-
-	RollingWindowSize             int     `yaml:"rollingWindowSize"`
-	RollingWindowFailureThreshold float64 `yaml:"rollingWindowFailureThreshold"`
 }
 
 type ProxyConfig struct { // nolint:revive
