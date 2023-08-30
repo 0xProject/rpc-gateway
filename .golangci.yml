@@ -60,6 +60,8 @@ linters-settings:
           - github.com/pkg/errors
           - github.com/prometheus/client_golang
           - github.com/stretchr/testify
+          - github.com/slok/go-http-metrics
+          - github.com/purini-to/zapmw
 
 issues:
   max-same-issues: 0 # unlimited
