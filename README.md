@@ -67,10 +67,6 @@ proxy:
   port: "3000" # port for RPC gateway
   upstreamTimeout: "1s" # when is a request considered timed out
 
-  # The number of retries within the same RPC target for a single request
-  allowedNumberOfRetriesPerTarget: 2
-  retryDelay: "10ms" # delay between retries
-
 healthChecks:
   interval: "5s" # how often to do healthchecks
   timeout: "1s" # when should the timeout occur and considered unhealthy

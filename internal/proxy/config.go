@@ -12,10 +12,8 @@ type HealthCheckConfig struct {
 }
 
 type ProxyConfig struct { // nolint:revive
-	Port                            string        `yaml:"port"`
-	AllowedNumberOfRetriesPerTarget uint          `yaml:"allowedNumberOfRetriesPerTarget"`
-	RetryDelay                      time.Duration `yaml:"retryDelay"`
-	UpstreamTimeout                 time.Duration `yaml:"upstreamTimeout"`
+	Port            string        `yaml:"port"`
+	UpstreamTimeout time.Duration `yaml:"upstreamTimeout"`
 }
 
 type TargetConnectionHTTP struct {

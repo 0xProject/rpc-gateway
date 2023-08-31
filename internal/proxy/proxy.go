@@ -121,7 +121,7 @@ func (h *Proxy) doModifyResponse(config TargetConfig) func(*http.Response) error
 	}
 }
 
-func (h *Proxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig, index uint) func(http.ResponseWriter, *http.Request, error) {
+func (h *Proxy) doErrorHandler(config TargetConfig, index uint) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, e error) {
 		// The client canceled the request (e.g. 0x API has a 5s timeout for RPC request)
 		// we stop here as it doesn't make sense to retry/reroute anymore.
@@ -132,8 +132,6 @@ func (h *Proxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig
 			return
 		}
 
-		retries := GetRetryFromContext(r)
-
 		// Workaround to reserve request body in ReverseProxy.ErrorHandler see
 		// more here: https://github.com/golang/go/issues/33726
 		//
@@ -142,17 +140,6 @@ func (h *Proxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig
 		}
 
 		zap.L().Warn("handling a failed request", zap.String("provider", config.Name), zap.Error(e))
-		if retries < h.config.Proxy.AllowedNumberOfRetriesPerTarget {
-			h.metricRequestErrors.WithLabelValues(config.Name, "retry").Inc()
-			// we add a configurable delay before resending request
-			//
-			<-time.After(h.config.Proxy.RetryDelay)
-
-			ctx := context.WithValue(r.Context(), Retries, retries+1)
-			proxy.ServeHTTP(w, r.WithContext(ctx))
-
-			return
-		}
 
 		// route the request to a different target
 		h.metricRequestErrors.WithLabelValues(config.Name, "rerouted").Inc()
@@ -165,9 +152,6 @@ func (h *Proxy) doErrorHandler(proxy *httputil.ReverseProxy, config TargetConfig
 		// adding the targetname in case it errors out and needs to be
 		// used in metrics in ServeHTTP.
 		ctx = context.WithValue(ctx, TargetName, config.Name)
-
-		// reset the number of retries for the next target
-		ctx = context.WithValue(ctx, Retries, 0)
 
 		h.ServeHTTP(w, r.WithContext(ctx))
 	}
@@ -184,7 +168,7 @@ func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
 	// proxy.ModifyResponse = h.doModifyResponse(config)
 	//
 	proxy.ModifyResponse = h.doModifyResponse(target) // nolint:bodyclose
-	proxy.ErrorHandler = h.doErrorHandler(proxy, target, index)
+	proxy.ErrorHandler = h.doErrorHandler(target, index)
 
 	h.targets = append(
 		h.targets,
