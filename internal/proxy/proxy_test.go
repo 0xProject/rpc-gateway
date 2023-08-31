@@ -16,9 +16,7 @@ import (
 func createConfig() Config {
 	return Config{
 		Proxy: ProxyConfig{
-			AllowedNumberOfRetriesPerTarget: 3,
-			RetryDelay:                      0,
-			UpstreamTimeout:                 0,
+			UpstreamTimeout: 0,
 		},
 		HealthChecks: HealthCheckConfig{
 			Interval:         0,
@@ -235,7 +233,6 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 	defer fakeRPCServer.Close()
 
 	rpcGatewayConfig := createConfig()
-	rpcGatewayConfig.Proxy.AllowedNumberOfRetriesPerTarget = 0
 
 	rpcGatewayConfig.Targets = []TargetConfig{
 		{

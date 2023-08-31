@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"net/url"
 	"time"
 )
 
@@ -13,10 +12,8 @@ type HealthCheckConfig struct {
 }
 
 type ProxyConfig struct { // nolint:revive
-	Port                            string        `yaml:"port"`
-	AllowedNumberOfRetriesPerTarget uint          `yaml:"allowedNumberOfRetriesPerTarget"`
-	RetryDelay                      time.Duration `yaml:"retryDelay"`
-	UpstreamTimeout                 time.Duration `yaml:"upstreamTimeout"`
+	Port            string        `yaml:"port"`
+	UpstreamTimeout time.Duration `yaml:"upstreamTimeout"`
 }
 
 type TargetConnectionHTTP struct {
@@ -32,10 +29,6 @@ type TargetConfigConnection struct {
 type TargetConfig struct {
 	Name       string                 `yaml:"name"`
 	Connection TargetConfigConnection `yaml:"connection"`
-}
-
-func (t *TargetConfig) GetParsedHTTPURL() (*url.URL, error) {
-	return url.Parse(t.Connection.HTTP.URL)
 }
 
 // This struct is temporary. It's about to keep the input interface clean and simple.

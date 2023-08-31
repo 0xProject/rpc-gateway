@@ -7,18 +7,9 @@ import (
 type ContextFailoverKeyInt int
 
 const (
-	Retries ContextFailoverKeyInt = iota
-	TargetName
+	TargetName ContextFailoverKeyInt = iota
 	VisitedTargets
 )
-
-// GetRetryFromContext returns the retries for request.
-func GetRetryFromContext(r *http.Request) uint {
-	if retries, ok := r.Context().Value(Retries).(uint); ok {
-		return retries
-	}
-	return 0
-}
 
 // GetVisitedTargetsFromContext returns the visited targets for request.
 func GetVisitedTargetsFromContext(r *http.Request) []uint {
