@@ -9,11 +9,6 @@ proxy:
   allowedNumberOfRetriesPerTarget: 1
   retryDelay: "10ms" # delay between retries
 
-  # The total number of re-routes (to the next healthy RPC target)
-  allowedNumberOfReroutes: 1
-
-  # Note: maximum number of target calls made per single request = (1 + allowedNumberOfReroutes) * (1 + allowedNumberOfRetriesPerTarget)
-
 healthChecks:
   interval: "5s" # how often to do healthchecks
   timeout: "1s" # when should the timeout occur and considered unhealthy
