@@ -12,7 +12,7 @@ require (
 	github.com/purini-to/zapmw v1.1.0
 	github.com/slok/go-http-metrics v0.10.0
 	github.com/stretchr/testify v1.8.4
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.3.0
 	gopkg.in/yaml.v2 v2.4.0
 )
