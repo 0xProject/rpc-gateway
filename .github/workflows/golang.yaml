@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOLANGVERSION }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOLANGVERSION }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: 0xProject/setup-govulncheck@v1
       - run: govulncheck ./...
 
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GOLANGVERSION }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: golangci/golangci-lint-action@v3
         with:
           version: latest
