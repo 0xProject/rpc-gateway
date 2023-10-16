@@ -92,7 +92,7 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	// config string
 	var tpl bytes.Buffer
-	tu := TestURL{"http://0.0.0.0:9991", "https://rpc.ankr.com/eth"}
+	tu := TestURL{"http://0.0.0.0:9991", "https://cloudflare-eth.com"}
 	tmpl, err := template.New("test").Parse(rpcGatewayConfig)
 	assert.Nil(t, err)
 

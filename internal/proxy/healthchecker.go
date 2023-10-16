@@ -193,6 +193,8 @@ func (h *RPCHealthchecker) checkAndSetBlockNumberHealth() {
 		return
 	}
 
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.blockNumber = blockNumber
 }
 
@@ -233,6 +235,9 @@ func (h *RPCHealthchecker) Stop(_ context.Context) error {
 }
 
 func (h *RPCHealthchecker) IsHealthy() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	if h.isTainted {
 		// If the healthchecker is tainted, we always return unhealthy
 		return false
@@ -242,6 +247,9 @@ func (h *RPCHealthchecker) IsHealthy() bool {
 }
 
 func (h *RPCHealthchecker) BlockNumber() uint64 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	return h.blockNumber
 }
 
