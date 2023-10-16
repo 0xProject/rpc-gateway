@@ -15,26 +15,26 @@ func TestHealthcheckManager(t *testing.T) {
 	manager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: []TargetConfig{
 			{
-				Name: "AnkrOne",
+				Name: "Primary",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
-						URL: "https://rpc.ankr.com/eth",
+						URL: "https://cloudflare-eth.com",
 					},
 				},
 			},
 			{
-				Name: "AnkrTwo",
+				Name: "StandBy",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
-						URL: "https://rpc.ankr.com/eth",
+						URL: "https://cloudflare-eth.com",
 					},
 				},
 			},
 		},
 
 		Config: HealthCheckConfig{
-			Interval:         200 * time.Millisecond,
-			Timeout:          2000 * time.Millisecond,
+			Interval:         1 * time.Second,
+			Timeout:          1 * time.Second,
 			FailureThreshold: 1,
 			SuccessThreshold: 1,
 		},
@@ -48,7 +48,7 @@ func TestHealthcheckManager(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	manager.TaintTarget("AnkrOne")
+	manager.TaintTarget("Primary")
 
 	nextIdx = manager.GetNextHealthyTargetIndex()
 	assert.Equal(t, 1, nextIdx)
@@ -62,10 +62,10 @@ func TestGetNextHealthyTargetIndexExcluding(t *testing.T) {
 	manager := NewHealthcheckManager(HealthcheckManagerConfig{
 		Targets: []TargetConfig{
 			{
-				Name: "AnkrOne",
+				Name: "Primary",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
-						URL: "https://rpc.ankr.com/eth",
+						URL: "https://cloudflare-eth.com",
 					},
 				},
 			},
@@ -84,13 +84,13 @@ func TestGetNextHealthyTargetIndexExcluding(t *testing.T) {
 	go manager.Start(ctx)
 	defer manager.Stop(ctx)
 
-	manager.GetTargetByName("AnkrOne").Taint()
+	manager.GetTargetByName("Primary").Taint()
 
 	assert.Equal(t, -1, manager.GetNextHealthyTargetIndexExcluding([]uint{}))
 
 	assert.Equal(t, -1, manager.GetNextHealthyTargetIndexExcluding([]uint{0}))
 
-	manager.GetTargetByName("AnkrOne").RemoveTaint()
+	manager.GetTargetByName("Primary").RemoveTaint()
 
 	assert.Equal(t, 0, manager.GetNextHealthyTargetIndexExcluding([]uint{}))
 }
