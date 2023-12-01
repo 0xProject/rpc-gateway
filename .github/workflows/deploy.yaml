@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Validate Input
         id: validate_input
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const { environment, commit } = context.payload.inputs
