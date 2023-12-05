@@ -169,6 +169,7 @@ func (h *Proxy) AddTarget(target TargetConfig, index uint) error {
 	//
 	proxy.ModifyResponse = h.doModifyResponse(target) // nolint:bodyclose
 	proxy.ErrorHandler = h.doErrorHandler(target, index)
+	proxy.BufferPool = newBufferPool()
 
 	h.targets = append(
 		h.targets,
