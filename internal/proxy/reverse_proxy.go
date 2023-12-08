@@ -3,12 +3,12 @@ package proxy
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/mwitkow/go-conntrack"
@@ -17,88 +17,30 @@ import (
 	"go.uber.org/zap"
 )
 
-// TODO
-// This code needs a new abstraction. We should bring a model and attach helper to a model.
-//
-
 func doProcessRequest(r *http.Request, config TargetConfig) error {
-	var body io.Reader
-	var buf bytes.Buffer
-	var err error
-
-	if r.Body == nil {
-		return errors.New("no body")
+	if strings.Contains(r.Header.Get("Content-Encoding"), "gzip") && !config.Connection.HTTP.Compression {
+		return errors.Wrap(doGunzip(r), "gunzip failed")
 	}
-
-	// The standard library stores ContentLength as signed data type.
-	//
-	if r.ContentLength == 0 || r.ContentLength < 0 {
-		return errors.New("invalid content length")
-	}
-
-	if r.Header.Get("Content-Encoding") == "gzip" && !config.Connection.HTTP.Compression {
-		body, err = doGunzip(r)
-		if err != nil {
-			return errors.Wrap(err, "cannot gunzip data")
-		}
-	} else {
-		body = io.TeeReader(r.Body, &buf)
-	}
-
-	// I don't like so much but the refactor is coming up soon!
-	//
-	// This is nothing more than ugly a workaround.
-	// This code guarantee the context buf will not be empty upon primary
-	// provider roundtrip failures.
-	//
-	data, err := io.ReadAll(body)
-	if err != nil {
-		return errors.New("cannot read body")
-	}
-
-	r.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	// Here's an interesting fact. There's no data in buf, until a call
-	// to Read(). With Read() call, it will write data to bytes.Buffer.
-	//
-	// I want to call it out, because it's damn smart.
-	//
-	ctx := context.WithValue(r.Context(), "bodybuf", &buf) // nolint:revive,staticcheck
-
-	// WithContext creates a shallow copy. It's highly important to
-	// override underlying memory pointed by pointer.
-	//
-	r2 := r.WithContext(ctx)
-	*r = *r2
 
 	return nil
 }
 
-func doGunzip(r *http.Request) (io.Reader, error) {
-	var buf bytes.Buffer
-	var body io.Reader
-
+func doGunzip(r *http.Request) error {
 	uncompressed, err := gzip.NewReader(r.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot decompress the data")
-	}
-	// Decompress the body.
-	//
-	data, err := io.ReadAll(uncompressed)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot read uncompressed data")
+		return errors.Wrap(err, "cannot decompress the data")
 	}
 
-	// Replace body content with uncompressed data
-	// Remove the "Content-Encoding: gzip" because the body is decompressed already
-	// and correct the Content-Length header
-	//
-	body = io.TeeReader(bytes.NewReader(data), &buf)
+	body := &bytes.Buffer{}
+	if _, err := io.Copy(body, uncompressed); err != nil { // nolint:gosec
+		return errors.Wrap(err, "cannot read uncompressed data")
+	}
 
 	r.Header.Del("Content-Encoding")
-	r.ContentLength = int64(len(data))
+	r.Body = io.NopCloser(body)
+	r.ContentLength = int64(body.Len())
 
-	return body, nil
+	return nil
 }
 
 func NewReverseProxy(targetConfig TargetConfig, config Config) (*httputil.ReverseProxy, error) {
@@ -114,9 +56,6 @@ func NewReverseProxy(targetConfig TargetConfig, config Config) (*httputil.Revers
 		r.URL.Host = target.Host
 		r.URL.Path = target.Path
 
-		// Workaround to reserve request body in ReverseProxy.ErrorHandler
-		// see more here: https://github.com/golang/go/issues/33726
-		//
 		if err := doProcessRequest(r, targetConfig); err != nil {
 			zap.L().Error("cannot process request", zap.Error(err))
 		}

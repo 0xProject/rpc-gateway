@@ -62,10 +62,6 @@ func (r *RPCGateway) Stop(ctx context.Context) error {
 	return r.server.Close()
 }
 
-func (r *RPCGateway) GetCurrentTarget() string {
-	return r.httpFailoverProxy.GetNextTargetName()
-}
-
 func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 	healthcheckManager := proxy.NewHealthcheckManager(
 		proxy.HealthcheckManagerConfig{
