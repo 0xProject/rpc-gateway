@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caitlinelfring/go-env-default"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -22,7 +23,7 @@ func TestBasicHealthchecker(t *testing.T) {
 	defer cancel()
 
 	healtcheckConfig := RPCHealthcheckerConfig{
-		URL:              "https://cloudflare-eth.com",
+		URL:              env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com"),
 		Interval:         1 * time.Second,
 		Timeout:          2 * time.Second,
 		FailureThreshold: 1,
@@ -48,7 +49,7 @@ func TestBasicHealthchecker(t *testing.T) {
 
 func TestGasLeftCall(t *testing.T) {
 	client := &http.Client{}
-	url := "https://cloudflare-eth.com"
+	url := env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com")
 
 	result, err := performGasLeftCall(context.TODO(), client, url)
 	assert.Nil(t, err)

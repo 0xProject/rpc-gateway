@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	toxiproxy "github.com/Shopify/toxiproxy/client"
+	"github.com/caitlinelfring/go-env-default"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -77,7 +78,7 @@ func TestRpcGatewayFailover(t *testing.T) {
 	err := toxiClient.ResetState()
 	assert.Nil(t, err)
 
-	proxy, err := toxiClient.CreateProxy("cloudflare", "0.0.0.0:9991", ts.URL[7:])
+	proxy, err := toxiClient.CreateProxy("primary", "0.0.0.0:9991", ts.URL[7:])
 	assert.Nil(t, err)
 
 	_, err = proxy.AddToxic("latency_down", "latency", "downstream", 1.0, toxiproxy.Attributes{
@@ -92,7 +93,7 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	// config string
 	var tpl bytes.Buffer
-	tu := TestURL{"http://0.0.0.0:9991", "https://cloudflare-eth.com"}
+	tu := TestURL{"http://0.0.0.0:9991", env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com")}
 	tmpl, err := template.New("test").Parse(rpcGatewayConfig)
 	assert.Nil(t, err)
 
