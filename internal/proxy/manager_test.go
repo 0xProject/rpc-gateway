@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caitlinelfring/go-env-default"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,7 +19,7 @@ func TestHealthcheckManager(t *testing.T) {
 				Name: "Primary",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
-						URL: "https://cloudflare-eth.com",
+						URL: env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com"),
 					},
 				},
 			},
@@ -26,7 +27,7 @@ func TestHealthcheckManager(t *testing.T) {
 				Name: "StandBy",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
-						URL: "https://cloudflare-eth.com",
+						URL: env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://eth.public-rpc.com"),
 					},
 				},
 			},
@@ -65,7 +66,7 @@ func TestGetNextHealthyTargetIndexExcluding(t *testing.T) {
 				Name: "Primary",
 				Connection: TargetConfigConnection{
 					HTTP: TargetConnectionHTTP{
-						URL: "https://cloudflare-eth.com",
+						URL: env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com"),
 					},
 				},
 			},

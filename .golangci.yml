@@ -59,6 +59,7 @@ linters-settings:
           - github.com/stretchr/testify
           - github.com/slok/go-http-metrics
           - github.com/purini-to/zapmw
+          - github.com/caitlinelfring/go-env-default
 
 issues:
   max-same-issues: 0 # unlimited
