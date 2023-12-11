@@ -33,6 +33,9 @@ jobs:
         run: docker-compose up -d
       - name: Run tests
         run: go test -race -shuffle=on -v ./internal/...
+        env:
+          RPC_GATEWAY_NODE_URL_1: ${{ secrets.RPC_GATEWAY_NODE_URL_1 }}
+          RPC_GATEWAY_NODE_URL_2: ${{ secrets.RPC_GATEWAY_NODE_URL_2 }}
       - name: Print out docker containers' logs
         if: always()
         run: docker-compose logs

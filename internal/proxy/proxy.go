@@ -5,9 +5,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"time"
 
 	"github.com/0xProject/rpc-gateway/internal/middleware"
+	"github.com/go-http-utils/headers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -100,6 +102,16 @@ func (h *Proxy) HasNodeProviderFailed(statusCode int) bool {
 	return statusCode >= http.StatusInternalServerError || statusCode == http.StatusTooManyRequests
 }
 
+func (h *Proxy) copyHeaders(dst http.ResponseWriter, src http.ResponseWriter) {
+	for k, v := range src.Header() {
+		if len(v) == 0 {
+			continue
+		}
+
+		dst.Header().Set(k, v[0])
+	}
+}
+
 func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body := &bytes.Buffer{}
 
@@ -113,10 +125,10 @@ func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		pw := NewResponseWriter()
 		r.Body = io.NopCloser(bytes.NewBuffer(body.Bytes()))
 
-		if target.Config.Connection.HTTP.Compression {
-			middleware.Gzip(target.Proxy).ServeHTTP(pw, r)
-		} else {
+		if !target.Config.Connection.HTTP.Compression && strings.Contains(r.Header.Get(headers.ContentEncoding), "gzip") {
 			middleware.Gunzip(target.Proxy).ServeHTTP(pw, r)
+		} else {
+			target.Proxy.ServeHTTP(pw, r)
 		}
 
 		if h.HasNodeProviderFailed(pw.statusCode) {
@@ -125,6 +137,7 @@ func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			continue
 		}
+		h.copyHeaders(w, pw)
 
 		w.WriteHeader(pw.statusCode)
 		w.Write(pw.body.Bytes()) // nolint:errcheck
