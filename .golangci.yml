@@ -60,6 +60,7 @@ linters-settings:
           - github.com/slok/go-http-metrics
           - github.com/purini-to/zapmw
           - github.com/caitlinelfring/go-env-default
+          - github.com/go-http-utils/headers
 
 issues:
   max-same-issues: 0 # unlimited
