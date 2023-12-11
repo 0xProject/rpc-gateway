@@ -7,6 +7,7 @@ import (
 	"net/http/httputil"
 	"time"
 
+	"github.com/0xProject/rpc-gateway/internal/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -112,7 +113,11 @@ func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		pw := NewResponseWriter()
 		r.Body = io.NopCloser(bytes.NewBuffer(body.Bytes()))
 
-		target.Proxy.ServeHTTP(pw, r)
+		if target.Config.Connection.HTTP.Compression {
+			middleware.Gzip(target.Proxy).ServeHTTP(pw, r)
+		} else {
+			middleware.Gunzip(target.Proxy).ServeHTTP(pw, r)
+		}
 
 		if h.HasNodeProviderFailed(pw.statusCode) {
 			h.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())

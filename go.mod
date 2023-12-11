@@ -6,6 +6,7 @@ require (
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/caitlinelfring/go-env-default v1.1.0
 	github.com/ethereum/go-ethereum v1.13.5
+	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
 	github.com/gorilla/mux v1.8.1
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
 	github.com/pkg/errors v0.9.1
