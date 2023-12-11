@@ -88,6 +88,8 @@ func (h *Proxy) AddTarget(target TargetConfig) error {
 		return err
 	}
 
+	proxy.BufferPool = newBufferPool()
+  
 	h.targets = append(
 		h.targets,
 		&HTTPTarget{
