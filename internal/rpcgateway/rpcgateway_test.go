@@ -118,9 +118,7 @@ func TestRpcGatewayFailover(t *testing.T) {
 		MaxConnsPerHost: 1,
 	}
 
-	t.Logf("gateway serving from: %s", gs.URL)
-
-	req, _ := http.NewRequest("POST", gs.URL, bytes.NewBufferString(``))
+	req, _ := http.NewRequest("POST", gs.URL, bytes.NewBufferString(rpcRequestBody))
 	req.Header.Set("Content-Type", "application/json")
 	req.ContentLength = int64(len(rpcRequestBody))
 
@@ -131,10 +129,8 @@ func TestRpcGatewayFailover(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 
-	bodyContent, _ := io.ReadAll(res.Body)
-
-	t.Log("Response from RPC gateway:")
-	t.Logf("%s", bodyContent)
+	_, err = io.ReadAll(res.Body)
+	assert.Nil(t, err)
 
 	err = gateway.Stop(context.TODO())
 	assert.Nil(t, err)
