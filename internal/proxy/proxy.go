@@ -5,9 +5,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"time"
 
 	"github.com/0xProject/rpc-gateway/internal/middleware"
+	"github.com/go-http-utils/headers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -113,10 +115,10 @@ func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		pw := NewResponseWriter()
 		r.Body = io.NopCloser(bytes.NewBuffer(body.Bytes()))
 
-		if target.Config.Connection.HTTP.Compression {
-			middleware.Gzip(target.Proxy).ServeHTTP(pw, r)
-		} else {
+		if !target.Config.Connection.HTTP.Compression && strings.Contains(r.Header.Get(headers.ContentEncoding), "gzip") {
 			middleware.Gunzip(target.Proxy).ServeHTTP(pw, r)
+		} else {
+			target.Proxy.ServeHTTP(pw, r)
 		}
 
 		if h.HasNodeProviderFailed(pw.statusCode) {
