@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"strconv"
 	"strings"
 	"time"
 
@@ -102,6 +103,16 @@ func (h *Proxy) HasNodeProviderFailed(statusCode int) bool {
 	return statusCode >= http.StatusInternalServerError || statusCode == http.StatusTooManyRequests
 }
 
+func (h *Proxy) copyHeaders(dst http.ResponseWriter, src http.ResponseWriter) {
+	for k, v := range src.Header() {
+		if len(v) == 0 {
+			continue
+		}
+
+		dst.Header().Set(k, v[0])
+	}
+}
+
 func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body := &bytes.Buffer{}
 
@@ -123,14 +134,17 @@ func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if h.HasNodeProviderFailed(pw.statusCode) {
 			h.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())
+			h.metricResponseStatus.WithLabelValues(target.Config.Name, strconv.Itoa(pw.statusCode)).Inc()
 			h.metricRequestErrors.WithLabelValues(target.Config.Name, "rerouted").Inc()
 
 			continue
 		}
+		h.copyHeaders(w, pw)
 
 		w.WriteHeader(pw.statusCode)
 		w.Write(pw.body.Bytes()) // nolint:errcheck
 
+		h.metricResponseStatus.WithLabelValues(target.Config.Name, strconv.Itoa(pw.statusCode)).Inc()
 		h.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())
 
 		return
