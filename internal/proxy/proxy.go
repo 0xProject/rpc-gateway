@@ -83,14 +83,14 @@ func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy
 	return proxy
 }
 
-func (h *Proxy) AddTarget(target TargetConfig) error {
-	proxy, err := NewReverseProxy(target, h.config)
+func (p *Proxy) AddTarget(target TargetConfig) error {
+	proxy, err := NewReverseProxy(target, p.config)
 	if err != nil {
 		return err
 	}
 
-	h.targets = append(
-		h.targets,
+	p.targets = append(
+		p.targets,
 		&HTTPTarget{
 			Config: target,
 			Proxy:  proxy,
@@ -99,11 +99,11 @@ func (h *Proxy) AddTarget(target TargetConfig) error {
 	return nil
 }
 
-func (h *Proxy) HasNodeProviderFailed(statusCode int) bool {
+func (p *Proxy) HasNodeProviderFailed(statusCode int) bool {
 	return statusCode >= http.StatusInternalServerError || statusCode == http.StatusTooManyRequests
 }
 
-func (h *Proxy) copyHeaders(dst http.ResponseWriter, src http.ResponseWriter) {
+func (p *Proxy) copyHeaders(dst http.ResponseWriter, src http.ResponseWriter) {
 	for k, v := range src.Header() {
 		if len(v) == 0 {
 			continue
@@ -113,14 +113,14 @@ func (h *Proxy) copyHeaders(dst http.ResponseWriter, src http.ResponseWriter) {
 	}
 }
 
-func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body := &bytes.Buffer{}
 
 	if _, err := io.Copy(body, r.Body); err != nil {
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 	}
 
-	for _, target := range h.targets {
+	for _, target := range p.targets {
 		start := time.Now()
 
 		pw := NewResponseWriter()
@@ -132,20 +132,20 @@ func (h *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			target.Proxy.ServeHTTP(pw, r)
 		}
 
-		if h.HasNodeProviderFailed(pw.statusCode) {
-			h.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())
-			h.metricResponseStatus.WithLabelValues(target.Config.Name, strconv.Itoa(pw.statusCode)).Inc()
-			h.metricRequestErrors.WithLabelValues(target.Config.Name, "rerouted").Inc()
+		if p.HasNodeProviderFailed(pw.statusCode) {
+			p.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())
+			p.metricResponseStatus.WithLabelValues(target.Config.Name, strconv.Itoa(pw.statusCode)).Inc()
+			p.metricRequestErrors.WithLabelValues(target.Config.Name, "rerouted").Inc()
 
 			continue
 		}
-		h.copyHeaders(w, pw)
+		p.copyHeaders(w, pw)
 
 		w.WriteHeader(pw.statusCode)
 		w.Write(pw.body.Bytes()) // nolint:errcheck
 
-		h.metricResponseStatus.WithLabelValues(target.Config.Name, strconv.Itoa(pw.statusCode)).Inc()
-		h.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())
+		p.metricResponseStatus.WithLabelValues(target.Config.Name, strconv.Itoa(pw.statusCode)).Inc()
+		p.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())
 
 		return
 	}
