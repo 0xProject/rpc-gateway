@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/go-http-utils/headers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,7 +18,7 @@ import (
 func createConfig() Config {
 	return Config{
 		Proxy: ProxyConfig{
-			UpstreamTimeout: 0,
+			UpstreamTimeout: time.Second * 3,
 		},
 		HealthChecks: HealthCheckConfig{
 			Interval:         0,

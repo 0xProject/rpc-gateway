@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewReverseProxy(targetConfig TargetConfig, config Config) (*httputil.ReverseProxy, error) {
+func NewReverseProxy(targetConfig TargetConfig) (*httputil.ReverseProxy, error) {
 	target, err := url.Parse(targetConfig.Connection.HTTP.URL)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot parse url")
@@ -42,7 +42,6 @@ func NewReverseProxy(targetConfig TargetConfig, config Config) (*httputil.Revers
 		IdleConnTimeout:       30 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		ResponseHeaderTimeout: config.Proxy.UpstreamTimeout,
 	}
 
 	conntrack.PreRegisterDialerMetrics(targetConfig.Name)

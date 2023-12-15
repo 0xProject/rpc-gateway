@@ -84,7 +84,7 @@ func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy
 }
 
 func (p *Proxy) AddTarget(target TargetConfig) error {
-	proxy, err := NewReverseProxy(target, p.config)
+	proxy, err := NewReverseProxy(target)
 	if err != nil {
 		return err
 	}
@@ -113,6 +113,16 @@ func (p *Proxy) copyHeaders(dst http.ResponseWriter, src http.ResponseWriter) {
 	}
 }
 
+func (p *Proxy) timeoutHandler(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		http.TimeoutHandler(next,
+			p.config.Proxy.UpstreamTimeout,
+			http.StatusText(http.StatusGatewayTimeout)).ServeHTTP(w, r)
+	}
+
+	return http.HandlerFunc(fn)
+}
+
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body := &bytes.Buffer{}
 
@@ -127,9 +137,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Body = io.NopCloser(bytes.NewBuffer(body.Bytes()))
 
 		if !target.Config.Connection.HTTP.Compression && strings.Contains(r.Header.Get(headers.ContentEncoding), "gzip") {
-			middleware.Gunzip(target.Proxy).ServeHTTP(pw, r)
+			p.timeoutHandler(middleware.Gunzip(target.Proxy)).ServeHTTP(pw, r)
 		} else {
-			target.Proxy.ServeHTTP(pw, r)
+			p.timeoutHandler(target.Proxy).ServeHTTP(pw, r)
 		}
 
 		if p.HasNodeProviderFailed(pw.statusCode) {
