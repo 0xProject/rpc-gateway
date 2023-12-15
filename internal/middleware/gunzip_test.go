@@ -25,8 +25,8 @@ func TestGunzip(t *testing.T) {
 			body := &strings.Builder{}
 
 			nbytes, err := io.Copy(body, r.Body)
-			assert.True(t, nbytes > 0)
-			assert.Nil(t, err)
+			assert.NotZero(t, nbytes)
+			assert.NoError(t, err)
 
 			assert.Equal(t, ethChainID, body.String())
 			assert.Equal(t, int64(len(ethChainID)), r.ContentLength)
@@ -38,7 +38,7 @@ func TestGunzip(t *testing.T) {
 
 		nbytes, err := io.Copy(w, bytes.NewBufferString(ethChainID))
 
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, nbytes > 0)
 		assert.Nil(t, w.Close())
 
@@ -56,8 +56,8 @@ func TestGunzip(t *testing.T) {
 			body := &strings.Builder{}
 
 			nbytes, err := io.Copy(body, r.Body)
-			assert.True(t, nbytes > 0)
-			assert.Nil(t, err)
+			assert.NotZero(t, nbytes)
+			assert.NoError(t, err)
 
 			assert.Equal(t, ethChainID, body.String())
 			assert.Equal(t, int64(len(ethChainID)), r.ContentLength)

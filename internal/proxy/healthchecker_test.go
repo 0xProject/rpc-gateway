@@ -31,7 +31,7 @@ func TestBasicHealthchecker(t *testing.T) {
 	}
 
 	healthchecker, err := NewHealthchecker(healtcheckConfig)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	healthchecker.Start(ctx)
 
@@ -52,7 +52,7 @@ func TestGasLeftCall(t *testing.T) {
 	url := env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com")
 
 	result, err := performGasLeftCall(context.TODO(), client, url)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotZero(t, result)
 
 	// testing the timeout
@@ -60,5 +60,5 @@ func TestGasLeftCall(t *testing.T) {
 	defer cancelFunc()
 
 	_, err = performGasLeftCall(ctx, client, url)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }

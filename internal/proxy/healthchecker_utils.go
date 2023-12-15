@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/go-http-utils/headers"
+	"github.com/pkg/errors"
 )
 
 type JSONRPCResponse struct {
@@ -22,7 +23,7 @@ func hexToUint(hexString string) (uint64, error) {
 	return strconv.ParseUint(hexString, 16, 64)
 }
 
-func performGasLeftCall(ctx context.Context, client *http.Client, url string) (uint64, error) {
+func performGasLeftCall(c context.Context, client *http.Client, url string) (uint64, error) {
 	var gasLeftCallRaw = []byte(`
 {
     "method": "eth_call",
@@ -46,30 +47,28 @@ func performGasLeftCall(ctx context.Context, client *http.Client, url string) (u
 }
 `)
 
-	requestBody := bytes.NewBuffer(gasLeftCallRaw)
-	request, err := http.NewRequestWithContext(ctx, "POST", url, requestBody)
-
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Set("User-Agent", userAgent)
-
+	r, err := http.NewRequestWithContext(c, http.MethodPost, url, bytes.NewBuffer(gasLeftCallRaw))
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "new request failed")
 	}
-	resp, err := client.Do(request)
+
+	r.Header.Add(headers.ContentEncoding, "application/json")
+	r.Header.Set(headers.UserAgent, userAgent)
+
+	resp, err := client.Do(r)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "request failed")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyContent, _ := io.ReadAll(resp.Body)
-		return 0, fmt.Errorf("got non-200 response, status: %d, body: %s", resp.StatusCode, bodyContent)
+		return 0, errors.Wrap(err, "gas left check failed")
 	}
 
 	result := &JSONRPCResponse{}
 	err = json.NewDecoder(resp.Body).Decode(result)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "json response decode failed")
 	}
 
 	return hexToUint(result.Result)
