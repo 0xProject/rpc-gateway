@@ -33,7 +33,7 @@ func performGasLeftCall(c context.Context, client *http.Client, url string) (uin
             "to": "0x5555555555555555555555555555555555555555",
             "value": "0x0",
             "data": "0x51be4eaa",
-            "gas": "0x5F5E100"
+            "gas": "0x3B9ACA00"
         },
         "latest",
         {
