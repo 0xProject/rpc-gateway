@@ -12,6 +12,7 @@ import (
 
 	toxiproxy "github.com/Shopify/toxiproxy/client"
 	"github.com/caitlinelfring/go-env-default"
+	"github.com/go-http-utils/headers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -76,15 +77,15 @@ func TestRpcGatewayFailover(t *testing.T) {
 	// Toxic Proxy setup
 	toxiClient := toxiproxy.NewClient("localhost:8474")
 	err := toxiClient.ResetState()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	proxy, err := toxiClient.CreateProxy("primary", "0.0.0.0:9991", ts.URL[7:])
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	_, err = proxy.AddToxic("latency_down", "latency", "downstream", 1.0, toxiproxy.Attributes{
 		"latency": 100000,
 	})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	defer func() {
 		_ = toxiClient.ResetState()
@@ -95,17 +96,14 @@ func TestRpcGatewayFailover(t *testing.T) {
 	var tpl bytes.Buffer
 	tu := TestURL{"http://0.0.0.0:9991", env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com")}
 	tmpl, err := template.New("test").Parse(rpcGatewayConfig)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	err = tmpl.Execute(&tpl, tu)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	configString := tpl.String()
-
-	t.Log(configString)
-
 	config, err := NewRPCGatewayFromConfigString(configString)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	gateway := NewRPCGateway(*config)
 	go gateway.Start(context.TODO())
@@ -118,20 +116,21 @@ func TestRpcGatewayFailover(t *testing.T) {
 		MaxConnsPerHost: 1,
 	}
 
-	req, _ := http.NewRequest("POST", gs.URL, bytes.NewBufferString(rpcRequestBody))
-	req.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest(http.MethodPost, gs.URL, bytes.NewBufferString(rpcRequestBody))
+	req.Header.Set(headers.ContentEncoding, "application/json")
 	req.ContentLength = int64(len(rpcRequestBody))
 
 	res, err := gsClient.Do(req)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	defer res.Body.Close()
 
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 
-	_, err = io.ReadAll(res.Body)
-	assert.Nil(t, err)
+	nbytes, err := io.ReadAll(res.Body)
+	assert.NoError(t, err)
+	assert.NotZero(t, nbytes)
 
 	err = gateway.Stop(context.TODO())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }

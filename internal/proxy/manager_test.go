@@ -54,7 +54,7 @@ func TestHealthcheckManager(t *testing.T) {
 	nextIdx = manager.GetNextHealthyTargetIndex()
 	assert.Equal(t, 1, nextIdx)
 
-	manager.Stop(ctx)
+	assert.NoError(t, manager.Stop(ctx))
 }
 
 func TestGetNextHealthyTargetIndexExcluding(t *testing.T) {
