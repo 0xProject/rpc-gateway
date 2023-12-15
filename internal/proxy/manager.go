@@ -157,17 +157,6 @@ func (h *HealthcheckManager) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (h *HealthcheckManager) GetTargetIndexByName(name string) int {
-	for idx, healthChecker := range h.healthcheckers {
-		if healthChecker.Name() == name {
-			return idx
-		}
-	}
-
-	zap.L().Error("tried to access a non-existing Healthchecker", zap.String("name", name))
-	return 0
-}
-
 func (h *HealthcheckManager) GetTargetByName(name string) Healthchecker {
 	for _, healthChecker := range h.healthcheckers {
 		if healthChecker.Name() == name {
@@ -184,44 +173,4 @@ func (h *HealthcheckManager) TaintTarget(name string) {
 		healthChecker.Taint()
 		return
 	}
-}
-
-func (h *HealthcheckManager) IsTargetHealthy(name string) bool {
-	if healthChecker := h.GetTargetByName(name); healthChecker != nil {
-		return healthChecker.IsHealthy()
-	}
-
-	return false
-}
-
-func (h *HealthcheckManager) GetNextHealthyTargetIndex() int {
-	for idx, target := range h.healthcheckers {
-		if target.IsHealthy() {
-			return idx
-		}
-	}
-
-	// no healthy targets, we down:(
-	zap.L().Error("no more healthy targets")
-	return -1
-}
-
-func (h *HealthcheckManager) GetNextHealthyTargetIndexExcluding(excludedIdx []uint) int {
-	for idx, target := range h.healthcheckers {
-		isExcluded := false
-		for _, excludedIndex := range excludedIdx {
-			if idx == int(excludedIndex) {
-				isExcluded = true
-				break
-			}
-		}
-
-		if !isExcluded && target.IsHealthy() {
-			return idx
-		}
-	}
-
-	// no healthy targets, we down:(
-	zap.L().Warn("no more healthy targets")
-	return -1
 }
