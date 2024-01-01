@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewReverseProxy(targetConfig TargetConfig) (*httputil.ReverseProxy, error) {
-	target, err := url.Parse(targetConfig.Connection.HTTP.URL)
+func NewNodeProviderProxy(config NodeProviderConfig) (*httputil.ReverseProxy, error) {
+	target, err := url.Parse(config.Connection.HTTP.URL)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot parse url")
 	}
@@ -26,7 +26,7 @@ func NewReverseProxy(targetConfig TargetConfig) (*httputil.ReverseProxy, error) 
 	}
 
 	conntrackDialer := conntrack.NewDialContextFunc(
-		conntrack.DialWithName(targetConfig.Name),
+		conntrack.DialWithName(config.Name),
 		conntrack.DialWithTracing(),
 		conntrack.DialWithDialer(&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -44,7 +44,7 @@ func NewReverseProxy(targetConfig TargetConfig) (*httputil.ReverseProxy, error) 
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
-	conntrack.PreRegisterDialerMetrics(targetConfig.Name)
+	conntrack.PreRegisterDialerMetrics(config.Name)
 
 	return proxy, nil
 }

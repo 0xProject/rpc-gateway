@@ -6,8 +6,8 @@ import (
 )
 
 type RPCGatewayConfig struct { //nolint:revive
-	Metrics      metrics.Config          `yaml:"metrics"`
-	Proxy        proxy.ProxyConfig       `yaml:"proxy"`
-	HealthChecks proxy.HealthCheckConfig `yaml:"healthChecks"`
-	Targets      []proxy.TargetConfig    `yaml:"targets"`
+	Metrics      metrics.Config             `yaml:"metrics"`
+	Proxy        proxy.ProxyConfig          `yaml:"proxy"`
+	HealthChecks proxy.HealthCheckConfig    `yaml:"healthChecks"`
+	Targets      []proxy.NodeProviderConfig `yaml:"targets"`
 }

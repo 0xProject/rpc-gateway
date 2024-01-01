@@ -11,7 +11,7 @@ import (
 )
 
 type HealthcheckManagerConfig struct {
-	Targets []TargetConfig
+	Targets []NodeProviderConfig
 	Config  HealthCheckConfig
 }
 
