@@ -26,7 +26,7 @@ func createConfig() Config {
 			FailureThreshold: 0,
 			SuccessThreshold: 0,
 		},
-		Targets: []TargetConfig{},
+		Targets: []NodeProviderConfig{},
 	}
 }
 
@@ -46,19 +46,19 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	defer fakeRPC2Server.Close()
 
 	rpcGatewayConfig := createConfig()
-	rpcGatewayConfig.Targets = []TargetConfig{
+	rpcGatewayConfig.Targets = []NodeProviderConfig{
 		{
 			Name: "Server1",
-			Connection: TargetConfigConnection{
-				HTTP: TargetConnectionHTTP{
+			Connection: NodeProviderConnectionConfig{
+				HTTP: NodeProviderConnectionHTTPConfig{
 					URL: fakeRPC1Server.URL,
 				},
 			},
 		},
 		{
 			Name: "Server2",
-			Connection: TargetConfigConnection{
-				HTTP: TargetConnectionHTTP{
+			Connection: NodeProviderConnectionConfig{
+				HTTP: NodeProviderConnectionHTTPConfig{
 					URL: fakeRPC2Server.URL,
 				},
 			},
@@ -104,11 +104,11 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	}))
 	defer fakeRPC1Server.Close()
 	rpcGatewayConfig := createConfig()
-	rpcGatewayConfig.Targets = []TargetConfig{
+	rpcGatewayConfig.Targets = []NodeProviderConfig{
 		{
 			Name: "Server1",
-			Connection: TargetConfigConnection{
-				HTTP: TargetConnectionHTTP{
+			Connection: NodeProviderConnectionConfig{
+				HTTP: NodeProviderConnectionHTTPConfig{
 					URL: fakeRPC1Server.URL,
 				},
 			},
@@ -157,11 +157,11 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	defer fakeRPC1Server.Close()
 
 	rpcGatewayConfig := createConfig()
-	rpcGatewayConfig.Targets = []TargetConfig{
+	rpcGatewayConfig.Targets = []NodeProviderConfig{
 		{
 			Name: "Server1",
-			Connection: TargetConfigConnection{
-				HTTP: TargetConnectionHTTP{
+			Connection: NodeProviderConnectionConfig{
+				HTTP: NodeProviderConnectionHTTPConfig{
 					URL:         fakeRPC1Server.URL,
 					Compression: true,
 				},
@@ -213,11 +213,11 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 
 	rpcGatewayConfig := createConfig()
 
-	rpcGatewayConfig.Targets = []TargetConfig{
+	rpcGatewayConfig.Targets = []NodeProviderConfig{
 		{
 			Name: "Server1",
-			Connection: TargetConfigConnection{
-				HTTP: TargetConnectionHTTP{
+			Connection: NodeProviderConnectionConfig{
+				HTTP: NodeProviderConnectionHTTPConfig{
 					// This service should not exist at all.
 					//
 					URL: "http://foo.bar",
@@ -226,8 +226,8 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 		},
 		{
 			Name: "Server2",
-			Connection: TargetConfigConnection{
-				HTTP: TargetConnectionHTTP{
+			Connection: NodeProviderConnectionConfig{
+				HTTP: NodeProviderConnectionHTTPConfig{
 					URL: fakeRPCServer.URL,
 				},
 			},

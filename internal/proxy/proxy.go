@@ -4,25 +4,16 @@ import (
 	"bytes"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/0xProject/rpc-gateway/internal/middleware"
-	"github.com/go-http-utils/headers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-type HTTPTarget struct {
-	Config TargetConfig
-	Proxy  *httputil.ReverseProxy
-}
-
 type Proxy struct {
 	config             Config
-	targets            []*HTTPTarget
+	targets            []*NodeProvider
 	healthcheckManager *HealthcheckManager
 
 	metricResponseTime   *prometheus.HistogramVec
@@ -75,28 +66,18 @@ func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy
 	}
 
 	for _, target := range proxy.config.Targets {
-		if err := proxy.AddTarget(target); err != nil {
+		p, err := NewNodeProvider(target)
+		if err != nil {
+			// TODO
+			// Remove a call to panic()
+			//
 			panic(err)
 		}
+
+		proxy.targets = append(proxy.targets, p)
 	}
 
 	return proxy
-}
-
-func (p *Proxy) AddTarget(target TargetConfig) error {
-	proxy, err := NewReverseProxy(target)
-	if err != nil {
-		return err
-	}
-
-	p.targets = append(
-		p.targets,
-		&HTTPTarget{
-			Config: target,
-			Proxy:  proxy,
-		})
-
-	return nil
 }
 
 func (p *Proxy) HasNodeProviderFailed(statusCode int) bool {
@@ -123,11 +104,17 @@ func (p *Proxy) timeoutHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
+func (p *Proxy) errServiceUnavailable(w http.ResponseWriter) {
+	http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+}
+
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body := &bytes.Buffer{}
 
 	if _, err := io.Copy(body, r.Body); err != nil {
-		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		p.errServiceUnavailable(w)
+
+		return
 	}
 
 	for _, target := range p.targets {
@@ -136,11 +123,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		pw := NewResponseWriter()
 		r.Body = io.NopCloser(bytes.NewBuffer(body.Bytes()))
 
-		if !target.Config.Connection.HTTP.Compression && strings.Contains(r.Header.Get(headers.ContentEncoding), "gzip") {
-			p.timeoutHandler(middleware.Gunzip(target.Proxy)).ServeHTTP(pw, r)
-		} else {
-			p.timeoutHandler(target.Proxy).ServeHTTP(pw, r)
-		}
+		p.timeoutHandler(target).ServeHTTP(pw, r)
 
 		if p.HasNodeProviderFailed(pw.statusCode) {
 			p.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())
@@ -160,5 +143,5 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+	p.errServiceUnavailable(w)
 }

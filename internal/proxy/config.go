@@ -16,23 +16,9 @@ type ProxyConfig struct { // nolint:revive
 	UpstreamTimeout time.Duration `yaml:"upstreamTimeout"`
 }
 
-type TargetConnectionHTTP struct {
-	URL         string `yaml:"url"`
-	Compression bool   `yaml:"compression"`
-}
-
-type TargetConfigConnection struct {
-	HTTP TargetConnectionHTTP `yaml:"http"`
-}
-
-type TargetConfig struct {
-	Name       string                 `yaml:"name"`
-	Connection TargetConfigConnection `yaml:"connection"`
-}
-
 // This struct is temporary. It's about to keep the input interface clean and simple.
 type Config struct {
 	Proxy        ProxyConfig
-	Targets      []TargetConfig
+	Targets      []NodeProviderConfig
 	HealthChecks HealthCheckConfig
 }
