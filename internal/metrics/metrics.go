@@ -25,7 +25,7 @@ func (s *Server) Stop() error {
 func NewServer(config Config) *Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, "{\"healthy\":true}")
 	})
 	mux.Handle("/metrics", promhttp.Handler())
