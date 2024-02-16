@@ -15,7 +15,6 @@ import (
 const (
 	MetricBlockNumber int = iota
 	MetricGasLimit
-	MetricResponseTime
 )
 
 const (
@@ -87,7 +86,6 @@ type RPCHealthchecker struct {
 	mu     sync.RWMutex
 
 	// metrics
-	metricResponseTime           *prometheus.HistogramVec
 	metricRPCProviderBlockNumber *prometheus.GaugeVec
 	metricRPCProviderGasLimit    *prometheus.GaugeVec
 }
@@ -121,8 +119,6 @@ func (h *RPCHealthchecker) SetMetric(i int, metric interface{}) {
 		h.metricRPCProviderBlockNumber = metric.(*prometheus.GaugeVec)
 	case MetricGasLimit:
 		h.metricRPCProviderGasLimit = metric.(*prometheus.GaugeVec)
-	case MetricResponseTime:
-		h.metricResponseTime = metric.(*prometheus.HistogramVec)
 	default:
 		zap.L().Warn("invalid metric type, ignoring.")
 	}
@@ -133,15 +129,10 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 	// used to evaluate a single RPC node against others
 	var blockNumber hexutil.Uint64
 
-	start := time.Now()
 	err := h.client.CallContext(ctx, &blockNumber, "eth_blockNumber")
 	if err != nil {
 		zap.L().Warn("error fetching the block number", zap.Error(err), zap.String("name", h.config.Name))
 		return 0, err
-	}
-	duration := time.Since(start)
-	if h.metricResponseTime != nil {
-		h.metricResponseTime.WithLabelValues(h.config.Name, "eth_blockNumber").Observe(duration.Seconds())
 	}
 	if h.metricRPCProviderBlockNumber != nil {
 		h.metricRPCProviderBlockNumber.WithLabelValues(h.config.Name).Set(float64(blockNumber))

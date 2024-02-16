@@ -20,7 +20,6 @@ type HealthcheckManager struct {
 
 	metricRPCProviderInfo        *prometheus.GaugeVec
 	metricRPCProviderStatus      *prometheus.GaugeVec
-	metricResponseTime           *prometheus.HistogramVec
 	metricRPCProviderBlockNumber *prometheus.GaugeVec
 	metricRPCProviderGasLimit    *prometheus.GaugeVec
 }
@@ -44,27 +43,6 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 			}, []string{
 				"provider",
 				"type",
-			}),
-		metricResponseTime: promauto.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name: "zeroex_rpc_gateway_healthcheck_response_duration_seconds",
-				Help: "Histogram of response time for Gateway Healthchecker in seconds",
-				Buckets: []float64{
-					.005,
-					.01,
-					.025,
-					.05,
-					.1,
-					.25,
-					.5,
-					1,
-					2.5,
-					5,
-					10,
-				},
-			}, []string{
-				"provider",
-				"method",
 			}),
 		metricRPCProviderBlockNumber: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -95,7 +73,6 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 
 		healthchecker.SetMetric(MetricBlockNumber, healthcheckManager.metricRPCProviderBlockNumber)
 		healthchecker.SetMetric(MetricGasLimit, healthcheckManager.metricRPCProviderGasLimit)
-		healthchecker.SetMetric(MetricResponseTime, healthcheckManager.metricResponseTime)
 
 		if err != nil {
 			panic(err)
