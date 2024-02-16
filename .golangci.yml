@@ -53,7 +53,6 @@ linters-settings:
           - github.com/Shopify/toxiproxy
           - github.com/ethereum/go-ethereum
           - github.com/gorilla/mux
-          - github.com/mwitkow/go-conntrack
           - github.com/pkg/errors
           - github.com/prometheus/client_golang
           - github.com/stretchr/testify
