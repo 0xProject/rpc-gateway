@@ -19,36 +19,34 @@ import (
 )
 
 type RPCGateway struct {
-	config             RPCGatewayConfig
-	httpFailoverProxy  *proxy.Proxy
-	healthcheckManager *proxy.HealthCheckManager
-	server             *http.Server
+	config RPCGatewayConfig
+	proxy  *proxy.Proxy
+	hcm    *proxy.HealthCheckManager
+	server *http.Server
 }
 
 func (r *RPCGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.server.Handler.ServeHTTP(w, req)
 }
 
-func (r *RPCGateway) Start(ctx context.Context) error {
+func (r *RPCGateway) Start(c context.Context) error {
 	zap.L().Info("starting rpc gateway")
 
 	go func() {
 		zap.L().Info("starting healthcheck manager")
-		err := r.healthcheckManager.Start(ctx)
+		err := r.hcm.Start(c)
 		if err != nil {
 			// TODO: Handle gracefully
 			zap.L().Fatal("failed to start healthcheck manager", zap.Error(err))
 		}
 	}()
 
-	r.server.Addr = fmt.Sprintf(":%s", r.config.Proxy.Port)
-
 	return r.server.ListenAndServe()
 }
 
-func (r *RPCGateway) Stop(ctx context.Context) error {
+func (r *RPCGateway) Stop(c context.Context) error {
 	zap.L().Info("stopping rpc gateway")
-	err := r.healthcheckManager.Stop(ctx)
+	err := r.hcm.Stop(c)
 	if err != nil {
 		zap.L().Error("healthcheck manager failed to stop gracefully", zap.Error(err))
 	}
@@ -57,18 +55,18 @@ func (r *RPCGateway) Stop(ctx context.Context) error {
 }
 
 func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
-	healthcheckManager := proxy.NewHealthCheckManager(
+	hcm := proxy.NewHealthCheckManager(
 		proxy.HealthCheckManagerConfig{
 			Targets: config.Targets,
 			Config:  config.HealthChecks,
 		})
-	httpFailoverProxy := proxy.NewProxy(
+	proxy := proxy.NewProxy(
 		proxy.Config{
 			Proxy:        config.Proxy,
 			Targets:      config.Targets,
 			HealthChecks: config.HealthChecks,
 		},
-		healthcheckManager,
+		hcm,
 	)
 
 	r := mux.NewRouter()
@@ -84,24 +82,20 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 		zapmw.Request(zapcore.InfoLevel, "request"),
 		zapmw.Recoverer(zapcore.ErrorLevel, "recover", zapmw.RecovererDefault),
 	)
+	r.PathPrefix("/").Handler(proxy)
 
-	srv := &http.Server{
-		Handler:           r,
-		WriteTimeout:      15 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		ReadHeaderTimeout: 5 * time.Second,
+	return &RPCGateway{
+		config: config,
+		proxy:  proxy,
+		hcm:    hcm,
+		server: &http.Server{
+			Addr:              fmt.Sprintf(":%s", config.Proxy.Port),
+			Handler:           r,
+			WriteTimeout:      time.Second * 15,
+			ReadTimeout:       time.Second * 15,
+			ReadHeaderTimeout: time.Second * 5,
+		},
 	}
-
-	gateway := &RPCGateway{
-		config:             config,
-		httpFailoverProxy:  httpFailoverProxy,
-		healthcheckManager: healthcheckManager,
-		server:             srv,
-	}
-
-	r.PathPrefix("/").Handler(httpFailoverProxy)
-
-	return gateway
 }
 
 func NewRPCGatewayFromConfigFile(path string) (*RPCGatewayConfig, error) {
