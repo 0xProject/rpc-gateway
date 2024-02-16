@@ -143,8 +143,7 @@ func (h *RPCHealthchecker) CheckAndSetHealth() {
 }
 
 func (h *RPCHealthchecker) checkAndSetBlockNumberHealth() {
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, h.config.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), h.config.Timeout)
 	defer cancel()
 
 	// TODO
@@ -199,8 +198,8 @@ func (h *RPCHealthchecker) Stop(_ context.Context) error {
 }
 
 func (h *RPCHealthchecker) IsHealthy() bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 
 	if h.isTainted {
 		// If the healthchecker is tainted, we always return unhealthy
@@ -211,15 +210,15 @@ func (h *RPCHealthchecker) IsHealthy() bool {
 }
 
 func (h *RPCHealthchecker) BlockNumber() uint64 {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 
 	return h.blockNumber
 }
 
 func (h *RPCHealthchecker) GasLimit() uint64 {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 
 	return h.gasLimit
 }
@@ -227,12 +226,14 @@ func (h *RPCHealthchecker) GasLimit() uint64 {
 func (h *RPCHealthchecker) IsTainted() bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+
 	return h.isTainted
 }
 
 func (h *RPCHealthchecker) Taint() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	if h.isTainted {
 		return
 	}
@@ -257,6 +258,7 @@ func (h *RPCHealthchecker) Taint() {
 func (h *RPCHealthchecker) RemoveTaint() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	h.isTainted = false
 	h.lastTaintRemoval = time.Now()
 	zap.L().Info("RPC Taint Removed", zap.String("name", h.config.Name))
