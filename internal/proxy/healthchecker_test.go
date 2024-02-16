@@ -40,10 +40,10 @@ func TestBasicHealthchecker(t *testing.T) {
 	// TODO: can be flaky due to cloudflare-eth endpoint
 	assert.True(t, healthchecker.IsHealthy())
 
-	healthchecker.Taint()
+	healthchecker.isHealthy = false
 	assert.False(t, healthchecker.IsHealthy())
 
-	healthchecker.RemoveTaint()
+	healthchecker.isHealthy = true
 	assert.True(t, healthchecker.IsHealthy())
 }
 

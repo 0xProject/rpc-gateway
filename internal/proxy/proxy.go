@@ -118,6 +118,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, target := range p.targets {
+		if !p.healthcheckManager.IsHealthy(target.Config.Name) {
+			continue
+		}
 		start := time.Now()
 
 		pw := NewResponseWriter()

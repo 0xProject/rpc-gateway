@@ -97,20 +97,26 @@ func (h *HealthCheckManager) runLoop(c context.Context) error {
 	}
 }
 
+func (h *HealthCheckManager) IsHealthy(name string) bool {
+	for _, hc := range h.hcs {
+		if hc.Name() == name && hc.IsHealthy() {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (h *HealthCheckManager) reportStatusMetrics() {
 	for _, hc := range h.hcs {
-		healthy := 0
-		tainted := 0
 		if hc.IsHealthy() {
-			healthy = 1
+			h.metricRPCProviderStatus.WithLabelValues(hc.Name(), "healthy").Set(1)
+		} else {
+			h.metricRPCProviderStatus.WithLabelValues(hc.Name(), "healthy").Set(0)
 		}
-		if hc.IsTainted() {
-			tainted = 1
-		}
+
 		h.metricRPCProviderGasLimit.WithLabelValues(hc.Name()).Set(float64(hc.BlockNumber()))
 		h.metricRPCProviderBlockNumber.WithLabelValues(hc.Name()).Set(float64(hc.BlockNumber()))
-		h.metricRPCProviderStatus.WithLabelValues(hc.Name(), "healthy").Set(float64(healthy))
-		h.metricRPCProviderStatus.WithLabelValues(hc.Name(), "tainted").Set(float64(tainted))
 	}
 }
 

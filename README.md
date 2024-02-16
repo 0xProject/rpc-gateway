@@ -1,9 +1,12 @@
-RPC Gateway
-===
+> [!CAUTION]
+> The rpc-gateway is in development mode, and you should not consider it
+> stable yet.
 
-RPC Gateway acts as a failover proxy routing ETH RPC requests across configured RPC nodes. For every ETH RPC node(group) configured the RPC Gateway tracks its latency, current height and error rates. These are then used to determine whether or not to failover.
+## RPC Gateway
 
-From a high level it simply looks like this:
+The rpc-gateway is a failover proxy for node providers. When health checks
+fail, the rpc-gateway automatically routes requests to a backup node provider.
+
 ```mermaid
 sequenceDiagram
 Alice->>RPC Gateway: eth_call
@@ -22,42 +25,24 @@ Infura-->>RPC Gateway: {"result":[...]}
 RPC Gateway-->>Alice: {"result":[...]}
 ```
 
-The gateway assesses the health of the underlying RPC provider by:
-- continuously (configurable how often) checking the blockNumber, if the request fails or timeouts it marks it as unhealthy (configurable thresholds)
-- every request that fails will be rerouted to the next available healthy target after a configurable amount of retries
-  - if it will be rerouted the current target will be "tainted"
-
-## Developing
+## Development
 
 Start dependent services
-```zsh
+```console
 docker-compose up
 ```
 
 Make sure the test pass
-```zsh
-go test
+```console
+go test -v ./...
 ```
 
 To run the app locally
-```zsh
-go run . --config ./example_config.yml
+```console
+DEBUG=true go run cmd/rpcgateway/main.go --config example_config.yml
 ```
 
-## Running & Configuration
-
-Build the binary:
-```
-go build
-```
-
-The statically linked `rpc-gateway` binary has one flag `--config` that defaults to `./config.yml` simply run it by:
-```
-./rpc-gateway --config ~/.rpc-gateway/config.yml
-```
-
-
-### Configuration
+## Configuration
 
 ```yaml
 metrics:
@@ -82,24 +67,4 @@ targets: # the order here determines the failover order
     connection:
       http: # ws is supported by default, it will be a sticky connection.
         url: "https://alchemy.com/rpc/<apikey>"
-```
-
-## Websockets
-
-Websockets are sticky and are handled transparently.
-
-## Taints
-
-Taints are a way for the `HealthcheckManager` to mark a node as unhealthy even though it responds to RPC calls. Some reasons for that are:
-- BlockNumber is way behind a "quorum".
-- A number of proxied requests fail in a given time.
-
-Currently taint clearing is not implemented yet.
-
-## Build Docker images locally
-We should build multi-arch image so the image can be run in both `arm64` and `amd64` arch.
-
-```zsh
-TAG="$(git rev-parse HEAD)"
-docker buildx build --platform linux/amd64,linux/arm64 -t 883408475785.dkr.ecr.us-east-1.amazonaws.com/rpc-gateway:${TAG} --push .
 ```
