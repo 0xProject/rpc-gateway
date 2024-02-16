@@ -3,14 +3,22 @@ run:
 
 linters:
   enable:
+    - asciicheck
+    - bidichk
     - bodyclose
+    - containedctx
     - depguard
     - dogsled
     - dupl
+    - durationcheck
     - errcheck
+    - errname
     - errorlint
+    - exhaustive
     - exportloopref
+    - forcetypeassert
     - funlen
+    - gochecknoglobals
     - gochecknoinits
     - gocognit
     - goconst
@@ -25,21 +33,30 @@ linters:
     - gosimple
     - govet
     - ineffassign
+    - ireturn
+    - maintidx
+    - makezero
     - misspell
     - nakedret
     - nestif
+    - nilerr
+    - nilnil
+    - nlreturn
     - prealloc
+    - predeclared
     - revive
     - rowserrcheck
     - staticcheck
     - stylecheck
+    - tagliatelle
+    - tenv
+    - thelper
     - tparallel
     - typecheck
     - unconvert
     - unparam
     - unused
     - whitespace
-    - gochecknoglobals
 
 linters-settings:
   funlen:

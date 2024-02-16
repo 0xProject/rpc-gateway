@@ -10,13 +10,13 @@ import (
 	"go.uber.org/zap"
 )
 
-type HealthcheckManagerConfig struct {
+type HealthCheckManagerConfig struct {
 	Targets []NodeProviderConfig
 	Config  HealthCheckConfig
 }
 
-type HealthcheckManager struct {
-	healthcheckers []Healthchecker
+type HealthCheckManager struct {
+	hcs []*HealthChecker
 
 	metricRPCProviderInfo        *prometheus.GaugeVec
 	metricRPCProviderStatus      *prometheus.GaugeVec
@@ -24,10 +24,10 @@ type HealthcheckManager struct {
 	metricRPCProviderGasLimit    *prometheus.GaugeVec
 }
 
-func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager {
-	healthCheckers := []Healthchecker{}
+func NewHealthCheckManager(config HealthCheckManagerConfig) *HealthCheckManager {
+	hcs := []*HealthChecker{}
 
-	healthcheckManager := &HealthcheckManager{
+	hcm := &HealthCheckManager{
 		metricRPCProviderInfo: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "zeroex_rpc_gateway_provider_info",
@@ -61,8 +61,8 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 	}
 
 	for _, target := range config.Targets {
-		healthchecker, err := NewHealthchecker(
-			RPCHealthcheckerConfig{
+		hc, err := NewHealthChecker(
+			HealthCheckerConfig{
 				URL:              target.Connection.HTTP.URL,
 				Name:             target.Name,
 				Interval:         config.Config.Interval,
@@ -75,20 +75,21 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 			panic(err)
 		}
 
-		healthCheckers = append(healthCheckers, healthchecker)
+		hcs = append(hcs, hc)
 	}
 
-	healthcheckManager.healthcheckers = healthCheckers
+	hcm.hcs = hcs
 
-	return healthcheckManager
+	return hcm
 }
 
-func (h *HealthcheckManager) runLoop(ctx context.Context) error {
+func (h *HealthCheckManager) runLoop(c context.Context) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
+
 	for {
 		select {
-		case <-ctx.Done():
+		case <-c.Done():
 			return nil
 		case <-ticker.C:
 			h.reportStatusMetrics()
@@ -96,35 +97,35 @@ func (h *HealthcheckManager) runLoop(ctx context.Context) error {
 	}
 }
 
-func (h *HealthcheckManager) reportStatusMetrics() {
-	for _, healthchecker := range h.healthcheckers {
+func (h *HealthCheckManager) reportStatusMetrics() {
+	for _, hc := range h.hcs {
 		healthy := 0
 		tainted := 0
-		if healthchecker.IsHealthy() {
+		if hc.IsHealthy() {
 			healthy = 1
 		}
-		if healthchecker.IsTainted() {
+		if hc.IsTainted() {
 			tainted = 1
 		}
-		h.metricRPCProviderGasLimit.WithLabelValues(healthchecker.Name()).Set(float64(healthchecker.BlockNumber()))
-		h.metricRPCProviderBlockNumber.WithLabelValues(healthchecker.Name()).Set(float64(healthchecker.BlockNumber()))
-		h.metricRPCProviderStatus.WithLabelValues(healthchecker.Name(), "healthy").Set(float64(healthy))
-		h.metricRPCProviderStatus.WithLabelValues(healthchecker.Name(), "tainted").Set(float64(tainted))
+		h.metricRPCProviderGasLimit.WithLabelValues(hc.Name()).Set(float64(hc.BlockNumber()))
+		h.metricRPCProviderBlockNumber.WithLabelValues(hc.Name()).Set(float64(hc.BlockNumber()))
+		h.metricRPCProviderStatus.WithLabelValues(hc.Name(), "healthy").Set(float64(healthy))
+		h.metricRPCProviderStatus.WithLabelValues(hc.Name(), "tainted").Set(float64(tainted))
 	}
 }
 
-func (h *HealthcheckManager) Start(ctx context.Context) error {
-	for index, healthChecker := range h.healthcheckers {
-		h.metricRPCProviderInfo.WithLabelValues(strconv.Itoa(index), healthChecker.Name()).Set(1)
-		go healthChecker.Start(ctx)
+func (h *HealthCheckManager) Start(c context.Context) error {
+	for i, hc := range h.hcs {
+		h.metricRPCProviderInfo.WithLabelValues(strconv.Itoa(i), hc.Name()).Set(1)
+		go hc.Start(c)
 	}
 
-	return h.runLoop(ctx)
+	return h.runLoop(c)
 }
 
-func (h *HealthcheckManager) Stop(ctx context.Context) error {
-	for _, healthChecker := range h.healthcheckers {
-		err := healthChecker.Stop(ctx)
+func (h *HealthCheckManager) Stop(c context.Context) error {
+	for _, hc := range h.hcs {
+		err := hc.Stop(c)
 		if err != nil {
 			zap.L().Error("healtchecker stop error", zap.Error(err))
 		}

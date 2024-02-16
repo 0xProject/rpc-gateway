@@ -22,7 +22,7 @@ func TestBasicHealthchecker(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	healtcheckConfig := RPCHealthcheckerConfig{
+	healtcheckConfig := HealthCheckerConfig{
 		URL:              env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com"),
 		Interval:         1 * time.Second,
 		Timeout:          2 * time.Second,
@@ -30,7 +30,7 @@ func TestBasicHealthchecker(t *testing.T) {
 		SuccessThreshold: 1,
 	}
 
-	healthchecker, err := NewHealthchecker(healtcheckConfig)
+	healthchecker, err := NewHealthChecker(healtcheckConfig)
 	assert.NoError(t, err)
 
 	healthchecker.Start(ctx)
