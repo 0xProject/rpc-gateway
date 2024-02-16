@@ -3,14 +3,12 @@ package rpcgateway
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/0xProject/rpc-gateway/internal/proxy"
 	"github.com/gorilla/mux"
-	"github.com/mwitkow/go-conntrack"
 	"github.com/purini-to/zapmw"
 	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
 	"github.com/slok/go-http-metrics/middleware"
@@ -43,14 +41,9 @@ func (r *RPCGateway) Start(ctx context.Context) error {
 		}
 	}()
 
-	listenAddress := fmt.Sprintf(":%s", r.config.Proxy.Port)
-	zap.L().Info("starting http failover proxy", zap.String("listenAddr", listenAddress))
-	listener, err := net.Listen("tcp", listenAddress)
-	if err != nil {
-		zap.L().Error("Failed to listen", zap.Error(err))
-	}
-	httpListener := conntrack.NewListener(listener, conntrack.TrackWithTracing())
-	return r.server.Serve(httpListener)
+	r.server.Addr = fmt.Sprintf(":%s", r.config.Proxy.Port)
+
+	return r.server.ListenAndServe()
 }
 
 func (r *RPCGateway) Stop(ctx context.Context) error {
