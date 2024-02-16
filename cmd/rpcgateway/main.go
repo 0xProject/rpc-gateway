@@ -70,6 +70,7 @@ func main() {
 		if err != nil {
 			logger.Error("error when stopping rpc gateway", zap.Error(err))
 		}
+
 		return nil
 	})
 

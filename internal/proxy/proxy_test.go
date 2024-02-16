@@ -64,7 +64,7 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 			},
 		},
 	}
-	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
+	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
 	})
@@ -115,7 +115,7 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 		},
 	}
 
-	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
+	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
 	})
@@ -169,7 +169,7 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 		},
 	}
 
-	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
+	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
 	})
@@ -233,7 +233,7 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 			},
 		},
 	}
-	healthcheckManager := NewHealthcheckManager(HealthcheckManagerConfig{
+	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
 	})

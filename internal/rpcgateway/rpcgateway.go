@@ -21,7 +21,7 @@ import (
 type RPCGateway struct {
 	config             RPCGatewayConfig
 	httpFailoverProxy  *proxy.Proxy
-	healthcheckManager *proxy.HealthcheckManager
+	healthcheckManager *proxy.HealthCheckManager
 	server             *http.Server
 }
 
@@ -52,12 +52,13 @@ func (r *RPCGateway) Stop(ctx context.Context) error {
 	if err != nil {
 		zap.L().Error("healthcheck manager failed to stop gracefully", zap.Error(err))
 	}
+
 	return r.server.Close()
 }
 
 func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
-	healthcheckManager := proxy.NewHealthcheckManager(
-		proxy.HealthcheckManagerConfig{
+	healthcheckManager := proxy.NewHealthCheckManager(
+		proxy.HealthCheckManagerConfig{
 			Targets: config.Targets,
 			Config:  config.HealthChecks,
 		})

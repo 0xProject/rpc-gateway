@@ -20,6 +20,7 @@ type JSONRPCResponse struct {
 
 func hexToUint(hexString string) (uint64, error) {
 	hexString = strings.ReplaceAll(hexString, "0x", "")
+
 	return strconv.ParseUint(hexString, 16, 64)
 }
 

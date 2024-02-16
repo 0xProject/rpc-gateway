@@ -14,14 +14,14 @@ import (
 type Proxy struct {
 	config             Config
 	targets            []*NodeProvider
-	healthcheckManager *HealthcheckManager
+	healthcheckManager *HealthCheckManager
 
 	metricResponseTime   *prometheus.HistogramVec
 	metricRequestErrors  *prometheus.CounterVec
 	metricResponseStatus *prometheus.CounterVec
 }
 
-func NewProxy(proxyConfig Config, healthCheckManager *HealthcheckManager) *Proxy {
+func NewProxy(proxyConfig Config, healthCheckManager *HealthCheckManager) *Proxy {
 	proxy := &Proxy{
 		config:             proxyConfig,
 		healthcheckManager: healthCheckManager,

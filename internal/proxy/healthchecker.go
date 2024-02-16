@@ -15,19 +15,7 @@ const (
 	userAgent = "rpc-gateway-health-check"
 )
 
-type Healthchecker interface {
-	Start(ctx context.Context)
-	Stop(ctx context.Context) error
-	IsHealthy() bool
-	BlockNumber() uint64
-	GasLimit() uint64
-	Taint()
-	RemoveTaint()
-	IsTainted() bool
-	Name() string
-}
-
-type RPCHealthcheckerConfig struct {
+type HealthCheckerConfig struct {
 	URL  string
 	Name string // identifier imported from RPC gateway config
 
@@ -53,10 +41,10 @@ const (
 	resetTaintWaitTimeAfterDuration = time.Minute * 5
 )
 
-type RPCHealthchecker struct {
+type HealthChecker struct {
 	client     *rpc.Client
 	httpClient *http.Client
-	config     RPCHealthcheckerConfig
+	config     HealthCheckerConfig
 
 	// latest known blockNumber from the RPC.
 	blockNumber uint64
@@ -75,12 +63,10 @@ type RPCHealthchecker struct {
 	// is the ethereum RPC node healthy according to the RPCHealthchecker
 	isHealthy bool
 
-	// health check ticker
-	ticker *time.Ticker
-	mu     sync.RWMutex
+	mu sync.RWMutex
 }
 
-func NewHealthchecker(config RPCHealthcheckerConfig) (Healthchecker, error) {
+func NewHealthChecker(config HealthCheckerConfig) (*HealthChecker, error) {
 	client, err := rpc.Dial(config.URL)
 	if err != nil {
 		return nil, err
@@ -88,7 +74,7 @@ func NewHealthchecker(config RPCHealthcheckerConfig) (Healthchecker, error) {
 
 	client.SetHeader("User-Agent", userAgent)
 
-	healthchecker := &RPCHealthchecker{
+	healthchecker := &HealthChecker{
 		client:               client,
 		httpClient:           &http.Client{},
 		config:               config,
@@ -99,18 +85,19 @@ func NewHealthchecker(config RPCHealthcheckerConfig) (Healthchecker, error) {
 	return healthchecker, nil
 }
 
-func (h *RPCHealthchecker) Name() string {
+func (h *HealthChecker) Name() string {
 	return h.config.Name
 }
 
-func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error) {
+func (h *HealthChecker) checkBlockNumber(c context.Context) (uint64, error) {
 	// First we check the block number reported by the node. This is later
 	// used to evaluate a single RPC node against others
 	var blockNumber hexutil.Uint64
 
-	err := h.client.CallContext(ctx, &blockNumber, "eth_blockNumber")
+	err := h.client.CallContext(c, &blockNumber, "eth_blockNumber")
 	if err != nil {
 		zap.L().Warn("error fetching the block number", zap.Error(err), zap.String("name", h.config.Name))
+
 		return 0, err
 	}
 	zap.L().Debug("fetched block", zap.Uint64("blockNumber", uint64(blockNumber)), zap.String("rpcProvider", h.config.Name))
@@ -122,11 +109,12 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 // want to perform an eth_call to make sure eth_call requests are also succeding
 // as blockNumber can be either cached or routed to a different service on the
 // RPC provider's side.
-func (h *RPCHealthchecker) checkGasLimit(ctx context.Context) (uint64, error) {
-	gasLimit, err := performGasLeftCall(ctx, h.httpClient, h.config.URL)
+func (h *HealthChecker) checkGasLimit(c context.Context) (uint64, error) {
+	gasLimit, err := performGasLeftCall(c, h.httpClient, h.config.URL)
 	zap.L().Debug("fetched gas limit", zap.Uint64("gasLimit", gasLimit), zap.String("rpcProvider", h.config.Name))
 	if err != nil {
 		zap.L().Warn("failed fetching the gas limit", zap.Error(err), zap.String("rpcProvider", h.config.Name))
+
 		return gasLimit, err
 	}
 
@@ -137,13 +125,13 @@ func (h *RPCHealthchecker) checkGasLimit(ctx context.Context) (uint64, error) {
 // - `eth_blockNumber` - to get the latest block reported by the node
 // - `eth_call` - to get the gas limit
 // And sets the health status based on the responses.
-func (h *RPCHealthchecker) CheckAndSetHealth() {
+func (h *HealthChecker) CheckAndSetHealth() {
 	go h.checkAndSetBlockNumberHealth()
 	go h.checkAndSetGasLeftHealth()
 }
 
-func (h *RPCHealthchecker) checkAndSetBlockNumberHealth() {
-	ctx, cancel := context.WithTimeout(context.Background(), h.config.Timeout)
+func (h *HealthChecker) checkAndSetBlockNumberHealth() {
+	c, cancel := context.WithTimeout(context.Background(), h.config.Timeout)
 	defer cancel()
 
 	// TODO
@@ -151,7 +139,7 @@ func (h *RPCHealthchecker) checkAndSetBlockNumberHealth() {
 	// This should be moved to a different place, because it does not do a
 	// health checking but it provides additional context.
 
-	blockNumber, err := h.checkBlockNumber(ctx)
+	blockNumber, err := h.checkBlockNumber(c)
 	if err != nil {
 		return
 	}
@@ -161,30 +149,31 @@ func (h *RPCHealthchecker) checkAndSetBlockNumberHealth() {
 	h.blockNumber = blockNumber
 }
 
-func (h *RPCHealthchecker) checkAndSetGasLeftHealth() {
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, h.config.Timeout)
+func (h *HealthChecker) checkAndSetGasLeftHealth() {
+	c, cancel := context.WithTimeout(context.Background(), h.config.Timeout)
 	defer cancel()
 
-	gasLimit, err := h.checkGasLimit(ctx)
+	gasLimit, err := h.checkGasLimit(c)
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if err != nil {
 		h.isHealthy = false
+
 		return
 	}
 	h.gasLimit = gasLimit
 	h.isHealthy = true
 }
 
-func (h *RPCHealthchecker) Start(ctx context.Context) {
+func (h *HealthChecker) Start(c context.Context) {
 	h.CheckAndSetHealth()
+
 	ticker := time.NewTicker(h.config.Interval)
 	defer ticker.Stop()
-	h.ticker = ticker
+
 	for {
 		select {
-		case <-ctx.Done():
+		case <-c.Done():
 			return
 		case <-ticker.C:
 			h.CheckAndSetHealth()
@@ -192,12 +181,12 @@ func (h *RPCHealthchecker) Start(ctx context.Context) {
 	}
 }
 
-func (h *RPCHealthchecker) Stop(_ context.Context) error {
+func (h *HealthChecker) Stop(_ context.Context) error {
 	// TODO: Additional cleanups?
 	return nil
 }
 
-func (h *RPCHealthchecker) IsHealthy() bool {
+func (h *HealthChecker) IsHealthy() bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -209,28 +198,28 @@ func (h *RPCHealthchecker) IsHealthy() bool {
 	return h.isHealthy
 }
 
-func (h *RPCHealthchecker) BlockNumber() uint64 {
+func (h *HealthChecker) BlockNumber() uint64 {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	return h.blockNumber
 }
 
-func (h *RPCHealthchecker) GasLimit() uint64 {
+func (h *HealthChecker) GasLimit() uint64 {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	return h.gasLimit
 }
 
-func (h *RPCHealthchecker) IsTainted() bool {
+func (h *HealthChecker) IsTainted() bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	return h.isTainted
 }
 
-func (h *RPCHealthchecker) Taint() {
+func (h *HealthChecker) Taint() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -255,7 +244,7 @@ func (h *RPCHealthchecker) Taint() {
 	}()
 }
 
-func (h *RPCHealthchecker) RemoveTaint() {
+func (h *HealthChecker) RemoveTaint() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

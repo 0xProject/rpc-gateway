@@ -15,6 +15,7 @@ type Server struct {
 
 func (s *Server) Start() error {
 	zap.L().Info("metrics server starting", zap.String("listenAddr", s.server.Addr))
+
 	return s.server.ListenAndServe()
 }
 
