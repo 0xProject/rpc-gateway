@@ -132,21 +132,3 @@ func (h *HealthcheckManager) Stop(ctx context.Context) error {
 
 	return nil
 }
-
-func (h *HealthcheckManager) GetTargetByName(name string) Healthchecker {
-	for _, healthChecker := range h.healthcheckers {
-		if healthChecker.Name() == name {
-			return healthChecker
-		}
-	}
-
-	zap.L().Error("tried to access a non-existing Healthchecker", zap.String("name", name))
-	return nil
-}
-
-func (h *HealthcheckManager) TaintTarget(name string) {
-	if healthChecker := h.GetTargetByName(name); healthChecker != nil {
-		healthChecker.Taint()
-		return
-	}
-}
