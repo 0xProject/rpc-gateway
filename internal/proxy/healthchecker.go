@@ -8,13 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-)
-
-const (
-	MetricBlockNumber int = iota
-	MetricGasLimit
 )
 
 const (
@@ -26,11 +20,11 @@ type Healthchecker interface {
 	Stop(ctx context.Context) error
 	IsHealthy() bool
 	BlockNumber() uint64
+	GasLimit() uint64
 	Taint()
 	RemoveTaint()
 	IsTainted() bool
 	Name() string
-	SetMetric(int, interface{})
 }
 
 type RPCHealthcheckerConfig struct {
@@ -84,10 +78,6 @@ type RPCHealthchecker struct {
 	// health check ticker
 	ticker *time.Ticker
 	mu     sync.RWMutex
-
-	// metrics
-	metricRPCProviderBlockNumber *prometheus.GaugeVec
-	metricRPCProviderGasLimit    *prometheus.GaugeVec
 }
 
 func NewHealthchecker(config RPCHealthcheckerConfig) (Healthchecker, error) {
@@ -113,17 +103,6 @@ func (h *RPCHealthchecker) Name() string {
 	return h.config.Name
 }
 
-func (h *RPCHealthchecker) SetMetric(i int, metric interface{}) {
-	switch i {
-	case MetricBlockNumber:
-		h.metricRPCProviderBlockNumber = metric.(*prometheus.GaugeVec)
-	case MetricGasLimit:
-		h.metricRPCProviderGasLimit = metric.(*prometheus.GaugeVec)
-	default:
-		zap.L().Warn("invalid metric type, ignoring.")
-	}
-}
-
 func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error) {
 	// First we check the block number reported by the node. This is later
 	// used to evaluate a single RPC node against others
@@ -133,9 +112,6 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 	if err != nil {
 		zap.L().Warn("error fetching the block number", zap.Error(err), zap.String("name", h.config.Name))
 		return 0, err
-	}
-	if h.metricRPCProviderBlockNumber != nil {
-		h.metricRPCProviderBlockNumber.WithLabelValues(h.config.Name).Set(float64(blockNumber))
 	}
 	zap.L().Debug("fetched block", zap.Uint64("blockNumber", uint64(blockNumber)), zap.String("rpcProvider", h.config.Name))
 
@@ -148,9 +124,6 @@ func (h *RPCHealthchecker) checkBlockNumber(ctx context.Context) (uint64, error)
 // RPC provider's side.
 func (h *RPCHealthchecker) checkGasLimit(ctx context.Context) (uint64, error) {
 	gasLimit, err := performGasLeftCall(ctx, h.httpClient, h.config.URL)
-	if h.metricRPCProviderGasLimit != nil {
-		h.metricRPCProviderGasLimit.WithLabelValues(h.config.Name).Set(float64(gasLimit))
-	}
 	zap.L().Debug("fetched gas limit", zap.Uint64("gasLimit", gasLimit), zap.String("rpcProvider", h.config.Name))
 	if err != nil {
 		zap.L().Warn("failed fetching the gas limit", zap.Error(err), zap.String("rpcProvider", h.config.Name))
@@ -242,6 +215,13 @@ func (h *RPCHealthchecker) BlockNumber() uint64 {
 	defer h.mu.Unlock()
 
 	return h.blockNumber
+}
+
+func (h *RPCHealthchecker) GasLimit() uint64 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return h.gasLimit
 }
 
 func (h *RPCHealthchecker) IsTainted() bool {

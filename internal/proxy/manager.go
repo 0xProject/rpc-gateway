@@ -71,9 +71,6 @@ func NewHealthcheckManager(config HealthcheckManagerConfig) *HealthcheckManager 
 				SuccessThreshold: config.Config.SuccessThreshold,
 			})
 
-		healthchecker.SetMetric(MetricBlockNumber, healthcheckManager.metricRPCProviderBlockNumber)
-		healthchecker.SetMetric(MetricGasLimit, healthcheckManager.metricRPCProviderGasLimit)
-
 		if err != nil {
 			panic(err)
 		}
@@ -109,6 +106,8 @@ func (h *HealthcheckManager) reportStatusMetrics() {
 		if healthchecker.IsTainted() {
 			tainted = 1
 		}
+		h.metricRPCProviderGasLimit.WithLabelValues(healthchecker.Name()).Set(float64(healthchecker.BlockNumber()))
+		h.metricRPCProviderBlockNumber.WithLabelValues(healthchecker.Name()).Set(float64(healthchecker.BlockNumber()))
 		h.metricRPCProviderStatus.WithLabelValues(healthchecker.Name(), "healthy").Set(float64(healthy))
 		h.metricRPCProviderStatus.WithLabelValues(healthchecker.Name(), "tainted").Set(float64(tainted))
 	}
