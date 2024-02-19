@@ -15,7 +15,6 @@ import (
 	"github.com/go-http-utils/headers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
 var rpcGatewayConfig = `
@@ -58,10 +57,6 @@ type TestURL struct {
 
 func TestRpcGatewayFailover(t *testing.T) {
 	prometheus.DefaultRegisterer = prometheus.NewRegistry()
-
-	// initial setup
-	logger, _ := zap.NewDevelopment()
-	zap.ReplaceGlobals(logger)
 
 	// RPC backends setup
 	onReq := func(r *http.Request) {
