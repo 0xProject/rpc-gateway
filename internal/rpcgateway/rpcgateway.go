@@ -13,9 +13,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/purini-to/zapmw"
-	prometheusMetrics "github.com/slok/go-http-metrics/metrics/prometheus"
-	"github.com/slok/go-http-metrics/middleware"
-	"github.com/slok/go-http-metrics/middleware/std"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/yaml.v2"
@@ -77,12 +74,6 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 	)
 
 	r := mux.NewRouter()
-
-	r.Use(std.HandlerProvider("",
-		middleware.New(middleware.Config{
-			Recorder: prometheusMetrics.NewRecorder(prometheusMetrics.Config{}),
-		})),
-	)
 
 	r.Use(
 		zapmw.WithZap(zap.L()),
