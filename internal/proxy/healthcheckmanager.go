@@ -25,8 +25,6 @@ type HealthCheckManager struct {
 }
 
 func NewHealthCheckManager(config HealthCheckManagerConfig) *HealthCheckManager {
-	hcs := []*HealthChecker{}
-
 	hcm := &HealthCheckManager{
 		metricRPCProviderInfo: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -75,10 +73,8 @@ func NewHealthCheckManager(config HealthCheckManagerConfig) *HealthCheckManager 
 			panic(err)
 		}
 
-		hcs = append(hcs, hc)
+		hcm.hcs = append(hcm.hcs, hc)
 	}
-
-	hcm.hcs = hcs
 
 	return hcm
 }

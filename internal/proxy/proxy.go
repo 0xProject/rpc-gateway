@@ -21,10 +21,10 @@ type Proxy struct {
 	metricResponseStatus *prometheus.CounterVec
 }
 
-func NewProxy(proxyConfig Config, healthCheckManager *HealthCheckManager) *Proxy {
+func NewProxy(config Config, hcm *HealthCheckManager) *Proxy {
 	proxy := &Proxy{
-		config:             proxyConfig,
-		healthcheckManager: healthCheckManager,
+		config:             config,
+		healthcheckManager: hcm,
 		metricResponseTime: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name: "zeroex_rpc_gateway_request_duration_seconds",
