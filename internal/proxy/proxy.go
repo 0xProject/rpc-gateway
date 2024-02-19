@@ -12,9 +12,9 @@ import (
 )
 
 type Proxy struct {
-	config             Config
-	targets            []*NodeProvider
-	healthcheckManager *HealthCheckManager
+	targets []*NodeProvider
+	hcm     *HealthCheckManager
+	timeout time.Duration
 
 	metricResponseTime   *prometheus.HistogramVec
 	metricRequestErrors  *prometheus.CounterVec
@@ -23,8 +23,8 @@ type Proxy struct {
 
 func NewProxy(config Config, hcm *HealthCheckManager) *Proxy {
 	proxy := &Proxy{
-		config:             config,
-		healthcheckManager: hcm,
+		hcm:     hcm,
+		timeout: config.Proxy.UpstreamTimeout,
 		metricResponseTime: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name: "zeroex_rpc_gateway_request_duration_seconds",
@@ -65,7 +65,7 @@ func NewProxy(config Config, hcm *HealthCheckManager) *Proxy {
 		}),
 	}
 
-	for _, target := range proxy.config.Targets {
+	for _, target := range config.Targets {
 		p, err := NewNodeProvider(target)
 		if err != nil {
 			// TODO
@@ -96,9 +96,8 @@ func (p *Proxy) copyHeaders(dst http.ResponseWriter, src http.ResponseWriter) {
 
 func (p *Proxy) timeoutHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		http.TimeoutHandler(next,
-			p.config.Proxy.UpstreamTimeout,
-			http.StatusText(http.StatusGatewayTimeout)).ServeHTTP(w, r)
+		handler := http.TimeoutHandler(next, p.timeout, http.StatusText(http.StatusGatewayTimeout))
+		handler.ServeHTTP(w, r)
 	}
 
 	return http.HandlerFunc(fn)
@@ -118,7 +117,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, target := range p.targets {
-		if !p.healthcheckManager.IsHealthy(target.Config.Name) {
+		if !p.hcm.IsHealthy(target.Config.Name) {
 			continue
 		}
 		start := time.Now()
