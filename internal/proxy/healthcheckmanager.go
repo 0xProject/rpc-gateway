@@ -2,23 +2,21 @@ package proxy
 
 import (
 	"context"
-	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/zap"
 )
 
 type HealthCheckManagerConfig struct {
 	Targets []NodeProviderConfig
 	Config  HealthCheckConfig
-	Logger  *slog.Logger
 }
 
 type HealthCheckManager struct {
-	hcs    []*HealthChecker
-	logger *slog.Logger
+	hcs []*HealthChecker
 
 	metricRPCProviderInfo        *prometheus.GaugeVec
 	metricRPCProviderStatus      *prometheus.GaugeVec
@@ -28,7 +26,6 @@ type HealthCheckManager struct {
 
 func NewHealthCheckManager(config HealthCheckManagerConfig) *HealthCheckManager {
 	hcm := &HealthCheckManager{
-		logger: config.Logger,
 		metricRPCProviderInfo: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "zeroex_rpc_gateway_provider_info",
@@ -64,7 +61,6 @@ func NewHealthCheckManager(config HealthCheckManagerConfig) *HealthCheckManager 
 	for _, target := range config.Targets {
 		hc, err := NewHealthChecker(
 			HealthCheckerConfig{
-				Logger:           config.Logger,
 				URL:              target.Connection.HTTP.URL,
 				Name:             target.Name,
 				Interval:         config.Config.Interval,
@@ -133,7 +129,7 @@ func (h *HealthCheckManager) Stop(c context.Context) error {
 	for _, hc := range h.hcs {
 		err := hc.Stop(c)
 		if err != nil {
-			h.logger.Error("could not stop health check manager", "error", err)
+			zap.L().Error("healtchecker stop error", zap.Error(err))
 		}
 	}
 

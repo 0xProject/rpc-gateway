@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -69,7 +67,6 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
-		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
 
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
@@ -121,7 +118,6 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
-		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
@@ -176,7 +172,6 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
-		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
@@ -241,7 +236,6 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
-		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
 
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager so the

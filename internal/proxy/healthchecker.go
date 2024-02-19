@@ -2,13 +2,13 @@ package proxy
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"go.uber.org/zap"
 )
 
 const (
@@ -16,9 +16,8 @@ const (
 )
 
 type HealthCheckerConfig struct {
-	URL    string
-	Name   string // identifier imported from RPC gateway config
-	Logger *slog.Logger
+	URL  string
+	Name string // identifier imported from RPC gateway config
 
 	// How often to check health.
 	Interval time.Duration `yaml:"healthcheckInterval"`
@@ -37,7 +36,6 @@ type HealthChecker struct {
 	client     *rpc.Client
 	httpClient *http.Client
 	config     HealthCheckerConfig
-	logger     *slog.Logger
 
 	// latest known blockNumber from the RPC.
 	blockNumber uint64
@@ -59,7 +57,6 @@ func NewHealthChecker(config HealthCheckerConfig) (*HealthChecker, error) {
 	client.SetHeader("User-Agent", userAgent)
 
 	healthchecker := &HealthChecker{
-		logger:     config.Logger.With("nodeprovider", config.Name),
 		client:     client,
 		httpClient: &http.Client{},
 		config:     config,
@@ -80,11 +77,11 @@ func (h *HealthChecker) checkBlockNumber(c context.Context) (uint64, error) {
 
 	err := h.client.CallContext(c, &blockNumber, "eth_blockNumber")
 	if err != nil {
-		h.logger.Error("could not fetch block number", "error", err)
+		zap.L().Warn("error fetching the block number", zap.Error(err), zap.String("name", h.config.Name))
 
 		return 0, err
 	}
-	h.logger.Debug("fetch block number completed", "blockNumber", uint64(blockNumber))
+	zap.L().Debug("fetched block", zap.Uint64("blockNumber", uint64(blockNumber)), zap.String("rpcProvider", h.config.Name))
 
 	return uint64(blockNumber), nil
 }
@@ -95,12 +92,12 @@ func (h *HealthChecker) checkBlockNumber(c context.Context) (uint64, error) {
 // RPC provider's side.
 func (h *HealthChecker) checkGasLimit(c context.Context) (uint64, error) {
 	gasLimit, err := performGasLeftCall(c, h.httpClient, h.config.URL)
+	zap.L().Debug("fetched gas limit", zap.Uint64("gasLimit", gasLimit), zap.String("rpcProvider", h.config.Name))
 	if err != nil {
-		h.logger.Error("could not fetch gas limit", "error", err)
+		zap.L().Warn("failed fetching the gas limit", zap.Error(err), zap.String("rpcProvider", h.config.Name))
 
 		return gasLimit, err
 	}
-	h.logger.Debug("fetch gas limit completed", "gasLimit", gasLimit)
 
 	return gasLimit, nil
 }
