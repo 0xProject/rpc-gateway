@@ -3,7 +3,6 @@ package rpcgateway
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -11,9 +10,11 @@ import (
 	"github.com/0xProject/rpc-gateway/internal/metrics"
 	"github.com/0xProject/rpc-gateway/internal/proxy"
 	"github.com/carlmjohnson/flowmatic"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/httplog/v2"
+	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/purini-to/zapmw"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/yaml.v2"
 )
 
@@ -58,25 +59,10 @@ func (r *RPCGateway) Stop(c context.Context) error {
 }
 
 func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
-	logLevel := slog.LevelWarn
-	if os.Getenv("DEBUG") == "true" {
-		logLevel = slog.LevelDebug
-	}
-
-	logger := httplog.NewLogger("rpc-gateway", httplog.Options{
-		JSON:           true,
-		RequestHeaders: true,
-		LogLevel:       logLevel,
-	})
-
 	hcm := proxy.NewHealthCheckManager(
 		proxy.HealthCheckManagerConfig{
 			Targets: config.Targets,
 			Config:  config.HealthChecks,
-			Logger: slog.New(
-				slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-					Level: logLevel,
-				})),
 		})
 	proxy := proxy.NewProxy(
 		proxy.Config{
@@ -87,9 +73,14 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 		hcm,
 	)
 
-	r := chi.NewRouter()
-	r.Use(httplog.RequestLogger(logger))
-	r.Handle("/", proxy)
+	r := mux.NewRouter()
+
+	r.Use(
+		zapmw.WithZap(zap.L()),
+		zapmw.Request(zapcore.InfoLevel, "request"),
+		zapmw.Recoverer(zapcore.ErrorLevel, "recover", zapmw.RecovererDefault),
+	)
+	r.PathPrefix("/").Handler(proxy)
 
 	return &RPCGateway{
 		config: config,
