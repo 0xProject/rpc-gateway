@@ -42,6 +42,10 @@ func NewNodeProvider(config NodeProviderConfig) (*NodeProvider, error) {
 	return nodeProvider, nil
 }
 
+func (n *NodeProvider) Name() string {
+	return n.Config.Name
+}
+
 func (n *NodeProvider) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gzip := strings.Contains(r.Header.Get(headers.ContentEncoding), "gzip")
 

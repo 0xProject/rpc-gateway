@@ -7,7 +7,7 @@ RUN apk add --update-cache \
 WORKDIR /src
 COPY . .
 
-RUN go build -o rpc-gateway cmd/rpcgateway/main.go
+RUN go build .
 
 FROM alpine:3.19
 
