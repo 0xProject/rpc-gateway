@@ -7,10 +7,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/0xProject/rpc-gateway/internal/metrics"
 	"github.com/0xProject/rpc-gateway/internal/proxy"
+	"github.com/carlmjohnson/flowmatic"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 	"github.com/purini-to/zapmw"
-	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
+	prometheusMetrics "github.com/slok/go-http-metrics/metrics/prometheus"
 	"github.com/slok/go-http-metrics/middleware"
 	"github.com/slok/go-http-metrics/middleware/std"
 	"go.uber.org/zap"
@@ -19,10 +22,11 @@ import (
 )
 
 type RPCGateway struct {
-	config RPCGatewayConfig
-	proxy  *proxy.Proxy
-	hcm    *proxy.HealthCheckManager
-	server *http.Server
+	config  RPCGatewayConfig
+	proxy   *proxy.Proxy
+	hcm     *proxy.HealthCheckManager
+	server  *http.Server
+	metrics *metrics.Server
 }
 
 func (r *RPCGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -30,28 +34,31 @@ func (r *RPCGateway) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *RPCGateway) Start(c context.Context) error {
-	zap.L().Info("starting rpc gateway")
-
-	go func() {
-		zap.L().Info("starting healthcheck manager")
-		err := r.hcm.Start(c)
-		if err != nil {
-			// TODO: Handle gracefully
-			zap.L().Fatal("failed to start healthcheck manager", zap.Error(err))
-		}
-	}()
-
-	return r.server.ListenAndServe()
+	return flowmatic.Do(
+		func() error {
+			return errors.Wrap(r.hcm.Start(c), "failed to start health check manager")
+		},
+		func() error {
+			return errors.Wrap(r.server.ListenAndServe(), "failed to start rpc-gateway")
+		},
+		func() error {
+			return errors.Wrap(r.metrics.Start(), "failed to start metrics server")
+		},
+	)
 }
 
 func (r *RPCGateway) Stop(c context.Context) error {
-	zap.L().Info("stopping rpc gateway")
-	err := r.hcm.Stop(c)
-	if err != nil {
-		zap.L().Error("healthcheck manager failed to stop gracefully", zap.Error(err))
-	}
-
-	return r.server.Close()
+	return flowmatic.Do(
+		func() error {
+			return errors.Wrap(r.hcm.Stop(c), "failed to stop health check manager")
+		},
+		func() error {
+			return errors.Wrap(r.server.Close(), "failed to stop rpc-gateway")
+		},
+		func() error {
+			return errors.Wrap(r.metrics.Stop(), "failed to stop metrics server")
+		},
+	)
 }
 
 func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
@@ -73,7 +80,7 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 
 	r.Use(std.HandlerProvider("",
 		middleware.New(middleware.Config{
-			Recorder: metrics.NewRecorder(metrics.Config{}),
+			Recorder: prometheusMetrics.NewRecorder(prometheusMetrics.Config{}),
 		})),
 	)
 
@@ -88,6 +95,11 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 		config: config,
 		proxy:  proxy,
 		hcm:    hcm,
+		metrics: metrics.NewServer(
+			metrics.Config{
+				Port: config.Metrics.Port,
+			},
+		),
 		server: &http.Server{
 			Addr:              fmt.Sprintf(":%s", config.Proxy.Port),
 			Handler:           r,

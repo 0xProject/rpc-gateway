@@ -3,19 +3,18 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/0xProject/rpc-gateway/internal/metrics"
 	"github.com/0xProject/rpc-gateway/internal/rpcgateway"
+	"github.com/carlmjohnson/flowmatic"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 func main() {
-	topCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	c, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	debugLogEnabled := os.Getenv("DEBUG") == "true"
@@ -26,9 +25,11 @@ func main() {
 	zapConfig := zap.NewProductionConfig()
 	zapConfig.Level = zap.NewAtomicLevelAt(logLevel)
 	logger, _ := zapConfig.Build()
+
 	// We replace the global logger with this initialized here for simplyfication.
 	// Do see: https://github.com/uber-go/zap/blob/master/FAQ.md#why-include-package-global-loggers
 	// ref: https://pkg.go.dev/go.uber.org/zap?utm_source=godoc#ReplaceGlobals
+	//
 	zap.ReplaceGlobals(logger)
 	defer func() {
 		err := logger.Sync() // flushes buffer, if any
@@ -36,8 +37,6 @@ func main() {
 			logger.Error("failed to flush logger with err: %s", zap.Error(err))
 		}
 	}()
-
-	g, gCtx := errgroup.WithContext(topCtx)
 
 	// Initialize config
 	configFileLocation := flag.String("config", "./config.yml", "path to rpc gateway config file")
@@ -47,34 +46,20 @@ func main() {
 		logger.Fatal("failed to get config", zap.Error(err))
 	}
 
-	// start gateway
-	rpcGateway := rpcgateway.NewRPCGateway(*config)
+	service := rpcgateway.NewRPCGateway(*config)
 
-	// start healthz and metrics server
-	metricsServer := metrics.NewServer(config.Metrics)
-	g.Go(func() error {
-		return metricsServer.Start()
-	})
+	err = flowmatic.Do(
+		func() error {
+			return errors.Wrap(service.Start(c), "cannot start a service")
+		},
+		func() error {
+			<-c.Done()
 
-	g.Go(func() error {
-		return rpcGateway.Start(context.TODO())
-	})
+			return errors.Wrap(service.Stop(c), "cannot stop a service")
+		},
+	)
 
-	g.Go(func() error {
-		<-gCtx.Done()
-		err := metricsServer.Stop()
-		if err != nil {
-			logger.Error("error when stopping healthserver", zap.Error(err))
-		}
-		err = rpcGateway.Stop(context.TODO())
-		if err != nil {
-			logger.Error("error when stopping rpc gateway", zap.Error(err))
-		}
-
-		return nil
-	})
-
-	if err := g.Wait(); err != nil {
-		fmt.Printf("exit reason: %s \n", err)
+	if err != nil {
+		logger.Fatal("errors", zap.Error(err))
 	}
 }

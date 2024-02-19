@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/caitlinelfring/go-env-default v1.1.0
+	github.com/carlmjohnson/flowmatic v0.23.4
 	github.com/ethereum/go-ethereum v1.13.12
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
 	github.com/gorilla/mux v1.8.1
@@ -21,6 +22,7 @@ require (
 require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/carlmjohnson/deque v0.23.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
