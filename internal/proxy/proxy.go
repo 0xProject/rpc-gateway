@@ -21,7 +21,7 @@ type Proxy struct {
 	metricResponseStatus *prometheus.CounterVec
 }
 
-func NewProxy(config Config, hcm *HealthCheckManager) *Proxy {
+func NewProxy(config Config, hcm *HealthCheckManager) (*Proxy, error) {
 	proxy := &Proxy{
 		hcm:     hcm,
 		timeout: config.Proxy.UpstreamTimeout,
@@ -68,16 +68,13 @@ func NewProxy(config Config, hcm *HealthCheckManager) *Proxy {
 	for _, target := range config.Targets {
 		p, err := NewNodeProvider(target)
 		if err != nil {
-			// TODO
-			// Remove a call to panic()
-			//
-			panic(err)
+			return nil, err
 		}
 
 		proxy.targets = append(proxy.targets, p)
 	}
 
-	return proxy
+	return proxy, nil
 }
 
 func (p *Proxy) HasNodeProviderFailed(statusCode int) bool {

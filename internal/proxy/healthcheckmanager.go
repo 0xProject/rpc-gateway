@@ -24,7 +24,7 @@ type HealthCheckManager struct {
 	metricRPCProviderGasLimit    *prometheus.GaugeVec
 }
 
-func NewHealthCheckManager(config HealthCheckManagerConfig) *HealthCheckManager {
+func NewHealthCheckManager(config HealthCheckManagerConfig) (*HealthCheckManager, error) {
 	hcm := &HealthCheckManager{
 		metricRPCProviderInfo: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -70,13 +70,13 @@ func NewHealthCheckManager(config HealthCheckManagerConfig) *HealthCheckManager 
 			})
 
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		hcm.hcs = append(hcm.hcs, hc)
 	}
 
-	return hcm
+	return hcm, nil
 }
 
 func (h *HealthCheckManager) runLoop(c context.Context) error {

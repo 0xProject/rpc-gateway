@@ -46,7 +46,10 @@ func main() {
 		logger.Fatal("failed to get config", zap.Error(err))
 	}
 
-	service := rpcgateway.NewRPCGateway(*config)
+	service, err := rpcgateway.NewRPCGateway(*config)
+	if err != nil {
+		logger.Fatal("cannot create rpc-gateway", zap.Error(err))
+	}
 
 	err = flowmatic.Do(
 		func() error {

@@ -61,13 +61,17 @@ func (r *RPCGateway) Stop(c context.Context) error {
 	)
 }
 
-func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
-	hcm := proxy.NewHealthCheckManager(
+func NewRPCGateway(config RPCGatewayConfig) (*RPCGateway, error) {
+	hcm, err := proxy.NewHealthCheckManager(
 		proxy.HealthCheckManagerConfig{
 			Targets: config.Targets,
 			Config:  config.HealthChecks,
 		})
-	proxy := proxy.NewProxy(
+	if err != nil {
+		return nil, err
+	}
+
+	proxy, err := proxy.NewProxy(
 		proxy.Config{
 			Proxy:        config.Proxy,
 			Targets:      config.Targets,
@@ -75,6 +79,9 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 		},
 		hcm,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	r := mux.NewRouter()
 
@@ -107,7 +114,7 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 			ReadTimeout:       time.Second * 15,
 			ReadHeaderTimeout: time.Second * 5,
 		},
-	}
+	}, nil
 }
 
 func NewRPCGatewayFromConfigFile(path string) (*RPCGatewayConfig, error) {
