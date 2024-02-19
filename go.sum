@@ -10,6 +10,10 @@ github.com/btcsuite/btcd/btcec/v2 v2.2.0 h1:fzn1qaOt32TuLjFlkzYSsBC35Q3KUjT1SwPx
 github.com/btcsuite/btcd/btcec/v2 v2.2.0/go.mod h1:U7MHm051Al6XmscBQ0BoNydpOTsFAn707034b5nY8zU=
 github.com/caitlinelfring/go-env-default v1.1.0 h1:bhDfXmUolvcIGfQCX8qevQX8wxC54NGz0aimoUnhvDM=
 github.com/caitlinelfring/go-env-default v1.1.0/go.mod h1:tESXPr8zFPP/cRy3cwxrHBmjJIf2A1x/o4C9CET2rEk=
+github.com/carlmjohnson/deque v0.23.1 h1:X2HOJM9xcglY03deMZ0oZ1V2xtbqYV7dJDnZiSZN4Ak=
+github.com/carlmjohnson/deque v0.23.1/go.mod h1:LF5NJjICBrEOPx84pxPL4nCimy5n9NQjxKi5cXkh+8U=
+github.com/carlmjohnson/flowmatic v0.23.4 h1:SfK6f+zKUlw4aga1ph+7/csqVeUAWnBxfqKN5gvQzzs=
+github.com/carlmjohnson/flowmatic v0.23.4/go.mod h1:Jpvyl591Dvkt9chYpnVupjxlKvqkZ9CtCmqL4wfQD7U=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/consensys/bavard v0.1.13 h1:oLhMLOFGTLdlda/kma4VOJazblc7IM5y5QPd2A/YjhQ=
