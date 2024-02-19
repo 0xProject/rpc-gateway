@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -21,16 +23,14 @@ func (s *Server) Stop() error {
 }
 
 func NewServer(config Config) *Server {
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	mux.Handle("/metrics", promhttp.Handler())
+	r.Use(middleware.Heartbeat("/healthz"))
+	r.Handle("/metrics", promhttp.Handler())
 
 	return &Server{
 		server: &http.Server{
-			Handler:           mux,
+			Handler:           r,
 			Addr:              fmt.Sprintf(":%d", config.Port),
 			WriteTimeout:      time.Second * 15,
 			ReadTimeout:       time.Second * 15,

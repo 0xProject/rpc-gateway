@@ -39,7 +39,7 @@ go test -v ./...
 
 To run the app locally
 ```console
-DEBUG=true go run cmd/rpcgateway/main.go --config example_config.yml
+DEBUG=true go run . --config example_config.yml
 ```
 
 ## Configuration

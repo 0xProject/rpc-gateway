@@ -78,6 +78,9 @@ linters-settings:
           - github.com/caitlinelfring/go-env-default
           - github.com/go-http-utils/headers
           - github.com/carlmjohnson/flowmatic
+          - github.com/go-chi/httplog/v2
+          - github.com/go-chi/chi/v5
+          - github.com/urfave/cli/v2
 
 issues:
   max-same-issues: 0 # unlimited
