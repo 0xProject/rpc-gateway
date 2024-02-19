@@ -49,10 +49,10 @@ func (r *RPCGateway) Stop(c context.Context) error {
 			return errors.Wrap(r.hcm.Stop(c), "failed to stop health check manager")
 		},
 		func() error {
-			return errors.Wrap(r.server.Close(), "failed to stop rpc-gateway")
+			return errors.Wrap(r.server.Shutdown(c), "failed to stop rpc-gateway")
 		},
 		func() error {
-			return errors.Wrap(r.metrics.Stop(), "failed to stop metrics server")
+			return errors.Wrap(r.metrics.Stop(c), "failed to stop metrics server")
 		},
 	)
 }
@@ -127,8 +127,4 @@ func NewRPCGatewayFromConfigBytes(configBytes []byte) (*RPCGatewayConfig, error)
 	}
 
 	return &config, nil
-}
-
-func NewRPCGatewayFromConfigString(configString string) (*RPCGatewayConfig, error) {
-	return NewRPCGatewayFromConfigBytes([]byte(configString))
 }

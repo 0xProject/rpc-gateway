@@ -56,13 +56,14 @@ func NewProxy(config Config, hcm *HealthCheckManager) *Proxy {
 				"provider",
 				"type",
 			}),
-		metricResponseStatus: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "zeroex_rpc_gateway_target_response_status_total",
-			Help: "Total number of responses with a statuscode label",
-		}, []string{
-			"provider",
-			"status_code",
-		}),
+		metricResponseStatus: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "zeroex_rpc_gateway_target_response_status_total",
+				Help: "Total number of responses with a statuscode label",
+			}, []string{
+				"provider",
+				"status_code",
+			}),
 	}
 
 	for _, target := range config.Targets {

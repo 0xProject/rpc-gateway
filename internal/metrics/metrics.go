@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -18,8 +19,8 @@ func (s *Server) Start() error {
 	return s.server.ListenAndServe()
 }
 
-func (s *Server) Stop() error {
-	return s.server.Close()
+func (s *Server) Stop(c context.Context) error {
+	return s.server.Shutdown(c)
 }
 
 func NewServer(config Config) *Server {

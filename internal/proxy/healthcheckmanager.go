@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -130,12 +131,16 @@ func (h *HealthCheckManager) Start(c context.Context) error {
 }
 
 func (h *HealthCheckManager) Stop(c context.Context) error {
+	var errors error
+
 	for _, hc := range h.hcs {
 		err := hc.Stop(c)
 		if err != nil {
+			errors = multierror.Append(errors, err)
+
 			h.logger.Error("could not stop health check manager", "error", err)
 		}
 	}
 
-	return nil
+	return errors
 }

@@ -96,8 +96,7 @@ func TestRpcGatewayFailover(t *testing.T) {
 	err = tmpl.Execute(&tpl, tu)
 	assert.NoError(t, err)
 
-	configString := tpl.String()
-	config, err := NewRPCGatewayFromConfigString(configString)
+	config, err := NewRPCGatewayFromConfigBytes(tpl.Bytes())
 	assert.NoError(t, err)
 
 	gateway := NewRPCGateway(*config)
