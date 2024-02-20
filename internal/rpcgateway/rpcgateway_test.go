@@ -95,7 +95,10 @@ func TestRpcGatewayFailover(t *testing.T) {
 	config, err := NewRPCGatewayFromConfigString(configString)
 	assert.NoError(t, err)
 
-	gateway := NewRPCGateway(*config)
+	gateway, err := NewRPCGateway(*config)
+	assert.NotNil(t, gateway)
+	assert.NoError(t, err)
+
 	go gateway.Start(context.TODO())
 	gs := httptest.NewServer(gateway)
 

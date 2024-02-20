@@ -33,7 +33,10 @@ func main() {
 				return err
 			}
 
-			service := rpcgateway.NewRPCGateway(*config)
+			service, err := rpcgateway.NewRPCGateway(*config)
+			if err != nil {
+				return errors.Wrap(err, "rpc-gateway failed")
+			}
 
 			return flowmatic.Do(
 				func() error {

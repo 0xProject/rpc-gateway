@@ -66,17 +66,22 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 			},
 		},
 	}
-	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
+	healthcheckManager, err := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
 		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
+	assert.NoError(t, err)
+	assert.NotNil(t, healthcheckManager)
+
 	rpcGatewayConfig.HealthcheckManager = healthcheckManager
 
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
 	// the failoverProxy should automatically reroute the request to the second RPC Server by itself
-	httpFailoverProxy := NewProxy(rpcGatewayConfig)
+	httpFailoverProxy, err := NewProxy(rpcGatewayConfig)
+	assert.NoError(t, err)
+	assert.NotNil(t, httpFailoverProxy)
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest(http.MethodPost, "/", requestBody)
@@ -119,20 +124,25 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 		},
 	}
 
-	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
+	healthcheckManager, err := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
 		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
+	assert.NotNil(t, healthcheckManager)
+	assert.NoError(t, err)
+
 	rpcGatewayConfig.HealthcheckManager = healthcheckManager
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewProxy(rpcGatewayConfig)
+	httpFailoverProxy, err := NewProxy(rpcGatewayConfig)
+	assert.NotNil(t, httpFailoverProxy)
+	assert.NoError(t, err)
 
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
 
-	_, err := g.Write([]byte(`{"body": "content"}`))
+	_, err = g.Write([]byte(`{"body": "content"}`))
 	assert.NoError(t, err)
 	assert.NoError(t, g.Close())
 
@@ -175,20 +185,25 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 		},
 	}
 
-	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
+	healthcheckManager, err := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
 		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
+	assert.NotNil(t, healthcheckManager)
+	assert.NoError(t, err)
+
 	rpcGatewayConfig.HealthcheckManager = healthcheckManager
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewProxy(rpcGatewayConfig)
+	httpFailoverProxy, err := NewProxy(rpcGatewayConfig)
+	assert.NotNil(t, httpFailoverProxy)
+	assert.NoError(t, err)
 
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
 
-	_, err := g.Write([]byte(`{"body": "content"}`))
+	_, err = g.Write([]byte(`{"body": "content"}`))
 	assert.NoError(t, err)
 	assert.NoError(t, g.Close())
 
@@ -241,18 +256,23 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 			},
 		},
 	}
-	healthcheckManager := NewHealthCheckManager(HealthCheckManagerConfig{
+	healthcheckManager, err := NewHealthCheckManager(HealthCheckManagerConfig{
 		Targets: rpcGatewayConfig.Targets,
 		Config:  rpcGatewayConfig.HealthChecks,
 		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
+	assert.NotNil(t, healthcheckManager)
+	assert.NoError(t, err)
+
 	rpcGatewayConfig.HealthcheckManager = healthcheckManager
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager so the
 	// no target will be tainted or marked as unhealthy by the
 	// HealthCheckManager the failoverProxy should automatically reroute the
 	// request to the second RPC Server by itself
 
-	httpFailoverProxy := NewProxy(rpcGatewayConfig)
+	httpFailoverProxy, err := NewProxy(rpcGatewayConfig)
+	assert.NotNil(t, httpFailoverProxy)
+	assert.NoError(t, err)
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest(http.MethodPost, "/", requestBody)
