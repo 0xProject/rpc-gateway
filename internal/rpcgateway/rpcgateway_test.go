@@ -3,7 +3,6 @@ package rpcgateway
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -58,15 +57,11 @@ type TestURL struct {
 func TestRpcGatewayFailover(t *testing.T) {
 	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 
-	// RPC backends setup
-	onReq := func(r *http.Request) {
-		fmt.Println("got request")
-	}
-	rpcBackend := &responder{
-		value:     []byte(`{"jsonrpc":"2.0","id":1,"result":"0xd8d7df"}`),
-		onRequest: onReq,
-	}
-	ts := httptest.NewServer(rpcBackend)
+	ts := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0xd8d7df"}`))
+			w.WriteHeader(http.StatusOK)
+		}))
 	defer ts.Close()
 
 	// Toxic Proxy setup
