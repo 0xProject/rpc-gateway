@@ -18,7 +18,6 @@ type Proxy struct {
 
 	metricRequestDuration *prometheus.HistogramVec
 	metricRequestErrors   *prometheus.CounterVec
-	metricResponseStatus  *prometheus.CounterVec
 }
 
 func NewProxy(config Config) *Proxy {
@@ -57,13 +56,6 @@ func NewProxy(config Config) *Proxy {
 				"provider",
 				"type",
 			}),
-		metricResponseStatus: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "zeroex_rpc_gateway_target_response_status_total",
-			Help: "Total number of responses with a statuscode label",
-		}, []string{
-			"provider",
-			"status_code",
-		}),
 	}
 
 	for _, target := range config.Targets {
@@ -118,7 +110,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, target := range p.targets {
-		if !p.hcm.IsHealthy(target.Config.Name) {
+		if !p.hcm.IsHealthy(target.Name()) {
 			continue
 		}
 		start := time.Now()
@@ -129,9 +121,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.timeoutHandler(target).ServeHTTP(pw, r)
 
 		if p.HasNodeProviderFailed(pw.statusCode) {
-			p.metricRequestDuration.WithLabelValues(target.Config.Name, r.Method, strconv.Itoa(pw.statusCode)).
+			p.metricRequestDuration.WithLabelValues(target.Name(), r.Method, strconv.Itoa(pw.statusCode)).
 				Observe(time.Since(start).Seconds())
-			p.metricRequestErrors.WithLabelValues(target.Config.Name, "rerouted").Inc()
+			p.metricRequestErrors.WithLabelValues(target.Name(), "rerouted").Inc()
 
 			continue
 		}
@@ -140,8 +132,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(pw.statusCode)
 		w.Write(pw.body.Bytes()) // nolint:errcheck
 
-		p.metricResponseStatus.WithLabelValues(target.Config.Name, strconv.Itoa(pw.statusCode)).Inc()
-		p.metricRequestDuration.WithLabelValues(target.Config.Name, r.Method, strconv.Itoa(pw.statusCode)).
+		p.metricRequestDuration.WithLabelValues(target.Name(), r.Method, strconv.Itoa(pw.statusCode)).
 			Observe(time.Since(start).Seconds())
 
 		return
