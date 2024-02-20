@@ -21,9 +21,9 @@ type Proxy struct {
 	metricResponseStatus  *prometheus.CounterVec
 }
 
-func NewProxy(config Config, hcm *HealthCheckManager) *Proxy {
+func NewProxy(config Config) *Proxy {
 	proxy := &Proxy{
-		hcm:     hcm,
+		hcm:     config.HealthcheckManager,
 		timeout: config.Proxy.UpstreamTimeout,
 		metricRequestDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{

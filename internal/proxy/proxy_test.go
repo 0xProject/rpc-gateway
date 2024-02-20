@@ -71,11 +71,12 @@ func TestHttpFailoverProxyRerouteRequests(t *testing.T) {
 		Config:  rpcGatewayConfig.HealthChecks,
 		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
+	rpcGatewayConfig.HealthcheckManager = healthcheckManager
 
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
 	// the failoverProxy should automatically reroute the request to the second RPC Server by itself
-	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(rpcGatewayConfig)
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest(http.MethodPost, "/", requestBody)
@@ -123,9 +124,10 @@ func TestHttpFailoverProxyDecompressRequest(t *testing.T) {
 		Config:  rpcGatewayConfig.HealthChecks,
 		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
+	rpcGatewayConfig.HealthcheckManager = healthcheckManager
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(rpcGatewayConfig)
 
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
@@ -178,9 +180,10 @@ func TestHttpFailoverProxyWithCompressionSupportedTarget(t *testing.T) {
 		Config:  rpcGatewayConfig.HealthChecks,
 		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
+	rpcGatewayConfig.HealthcheckManager = healthcheckManager
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager
 	// so the no target will be tainted or marked as unhealthy by the HealthCheckManager
-	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(rpcGatewayConfig)
 
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
@@ -243,13 +246,13 @@ func TestHTTPFailoverProxyWhenCannotConnectToPrimaryProvider(t *testing.T) {
 		Config:  rpcGatewayConfig.HealthChecks,
 		Logger:  slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	})
-
+	rpcGatewayConfig.HealthcheckManager = healthcheckManager
 	// Setup HttpFailoverProxy but not starting the HealthCheckManager so the
 	// no target will be tainted or marked as unhealthy by the
 	// HealthCheckManager the failoverProxy should automatically reroute the
 	// request to the second RPC Server by itself
 
-	httpFailoverProxy := NewProxy(rpcGatewayConfig, healthcheckManager)
+	httpFailoverProxy := NewProxy(rpcGatewayConfig)
 
 	requestBody := bytes.NewBufferString(`{"this_is": "body"}`)
 	req, err := http.NewRequest(http.MethodPost, "/", requestBody)

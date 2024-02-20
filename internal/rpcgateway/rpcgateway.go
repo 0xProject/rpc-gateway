@@ -80,11 +80,11 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 		})
 	proxy := proxy.NewProxy(
 		proxy.Config{
-			Proxy:        config.Proxy,
-			Targets:      config.Targets,
-			HealthChecks: config.HealthChecks,
+			Proxy:              config.Proxy,
+			Targets:            config.Targets,
+			HealthChecks:       config.HealthChecks,
+			HealthcheckManager: hcm,
 		},
-		hcm,
 	)
 
 	r := chi.NewRouter()
