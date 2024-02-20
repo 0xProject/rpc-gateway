@@ -18,7 +18,8 @@ type ProxyConfig struct { // nolint:revive
 
 // This struct is temporary. It's about to keep the input interface clean and simple.
 type Config struct {
-	Proxy        ProxyConfig
-	Targets      []NodeProviderConfig
-	HealthChecks HealthCheckConfig
+	Proxy              ProxyConfig
+	Targets            []NodeProviderConfig
+	HealthChecks       HealthCheckConfig
+	HealthcheckManager *HealthCheckManager
 }
