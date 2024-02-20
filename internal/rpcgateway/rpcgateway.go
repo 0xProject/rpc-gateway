@@ -12,6 +12,7 @@ import (
 	"github.com/0xProject/rpc-gateway/internal/proxy"
 	"github.com/carlmjohnson/flowmatic"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httplog/v2"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -57,7 +58,7 @@ func (r *RPCGateway) Stop(c context.Context) error {
 	)
 }
 
-func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
+func NewRPCGateway(config RPCGatewayConfig) (*RPCGateway, error) {
 	logLevel := slog.LevelWarn
 	if os.Getenv("DEBUG") == "true" {
 		logLevel = slog.LevelDebug
@@ -69,7 +70,7 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 		LogLevel:       logLevel,
 	})
 
-	hcm := proxy.NewHealthCheckManager(
+	hcm, err := proxy.NewHealthCheckManager(
 		proxy.HealthCheckManagerConfig{
 			Targets: config.Targets,
 			Config:  config.HealthChecks,
@@ -78,7 +79,11 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 					Level: logLevel,
 				})),
 		})
-	proxy := proxy.NewProxy(
+	if err != nil {
+		return nil, errors.Wrap(err, "healthcheckmanager failed")
+	}
+
+	proxy, err := proxy.NewProxy(
 		proxy.Config{
 			Proxy:              config.Proxy,
 			Targets:            config.Targets,
@@ -86,9 +91,19 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 			HealthcheckManager: hcm,
 		},
 	)
+	if err != nil {
+		return nil, errors.Wrap(err, "proxy failed")
+	}
 
 	r := chi.NewRouter()
 	r.Use(httplog.RequestLogger(logger))
+
+	// Recoverer is a middleware that recovers from panics, logs the panic (and
+	// a backtrace), and returns a HTTP 500 (Internal Server Error) status if
+	// possible. Recoverer prints a request ID if one is provided.
+	//
+	r.Use(middleware.Recoverer)
+
 	r.Handle("/", proxy)
 
 	return &RPCGateway{
@@ -107,7 +122,7 @@ func NewRPCGateway(config RPCGatewayConfig) *RPCGateway {
 			ReadTimeout:       time.Second * 15,
 			ReadHeaderTimeout: time.Second * 5,
 		},
-	}
+	}, nil
 }
 
 func NewRPCGatewayFromConfigFile(path string) (*RPCGatewayConfig, error) {
