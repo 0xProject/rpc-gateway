@@ -16,16 +16,16 @@ type Proxy struct {
 	hcm     *HealthCheckManager
 	timeout time.Duration
 
-	metricResponseTime   *prometheus.HistogramVec
-	metricRequestErrors  *prometheus.CounterVec
-	metricResponseStatus *prometheus.CounterVec
+	metricRequestDuration *prometheus.HistogramVec
+	metricRequestErrors   *prometheus.CounterVec
+	metricResponseStatus  *prometheus.CounterVec
 }
 
 func NewProxy(config Config, hcm *HealthCheckManager) *Proxy {
 	proxy := &Proxy{
 		hcm:     hcm,
 		timeout: config.Proxy.UpstreamTimeout,
-		metricResponseTime: promauto.NewHistogramVec(
+		metricRequestDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name: "zeroex_rpc_gateway_request_duration_seconds",
 				Help: "Histogram of response time for Gateway in seconds",
@@ -47,6 +47,7 @@ func NewProxy(config Config, hcm *HealthCheckManager) *Proxy {
 			}, []string{
 				"provider",
 				"method",
+				"status_code",
 			}),
 		metricRequestErrors: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -128,8 +129,8 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.timeoutHandler(target).ServeHTTP(pw, r)
 
 		if p.HasNodeProviderFailed(pw.statusCode) {
-			p.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())
-			p.metricResponseStatus.WithLabelValues(target.Config.Name, strconv.Itoa(pw.statusCode)).Inc()
+			p.metricRequestDuration.WithLabelValues(target.Config.Name, r.Method, strconv.Itoa(pw.statusCode)).
+				Observe(time.Since(start).Seconds())
 			p.metricRequestErrors.WithLabelValues(target.Config.Name, "rerouted").Inc()
 
 			continue
@@ -140,7 +141,8 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write(pw.body.Bytes()) // nolint:errcheck
 
 		p.metricResponseStatus.WithLabelValues(target.Config.Name, strconv.Itoa(pw.statusCode)).Inc()
-		p.metricResponseTime.WithLabelValues(target.Config.Name, r.Method).Observe(time.Since(start).Seconds())
+		p.metricRequestDuration.WithLabelValues(target.Config.Name, r.Method, strconv.Itoa(pw.statusCode)).
+			Observe(time.Since(start).Seconds())
 
 		return
 	}

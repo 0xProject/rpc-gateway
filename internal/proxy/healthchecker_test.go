@@ -2,23 +2,18 @@ package proxy
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/caitlinelfring/go-env-default"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
 // TestBasicHealthchecker checks if it runs with default options.
 func TestBasicHealthchecker(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	// We replace the global logger with this initialized here for simplyfication.
-	// Do see: https://github.com/uber-go/zap/blob/master/FAQ.md#why-include-package-global-loggers
-	// ref: https://pkg.go.dev/go.uber.org/zap?utm_source=godoc#ReplaceGlobals
-	zap.ReplaceGlobals(logger)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -28,6 +23,7 @@ func TestBasicHealthchecker(t *testing.T) {
 		Timeout:          2 * time.Second,
 		FailureThreshold: 1,
 		SuccessThreshold: 1,
+		Logger:           slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	}
 
 	healthchecker, err := NewHealthChecker(healtcheckConfig)

@@ -12,8 +12,12 @@ healthChecks:
   successThreshold: 1 # how many successes to be marked as healthy again
 
 targets:
-  - name: "QuickNode"
+  - name: "Ankr"
     connection:
       http: # ws is supported by default, it will be a sticky connection.
         url: "https://rpc.ankr.com/eth"
         # compression: true # Specify if the target supports request compression
+  - name: "Cloudflare"
+    connection:
+      http:
+        url: "https://cloudflare-eth.com"
