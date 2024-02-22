@@ -125,25 +125,19 @@ func NewRPCGateway(config RPCGatewayConfig) (*RPCGateway, error) {
 	}, nil
 }
 
-func NewRPCGatewayFromConfigFile(path string) (*RPCGatewayConfig, error) {
-	data, err := os.ReadFile(path)
+// NewRPCGatewayFromConfigFile creates an instance of RPCGateway from provided
+// configuration file.
+func NewRPCGatewayFromConfigFile(s string) (*RPCGateway, error) {
+	data, err := os.ReadFile(s)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewRPCGatewayFromConfigBytes(data)
-}
+	var config RPCGatewayConfig
 
-func NewRPCGatewayFromConfigBytes(configBytes []byte) (*RPCGatewayConfig, error) {
-	config := RPCGatewayConfig{}
-
-	if err := yaml.Unmarshal(configBytes, &config); err != nil {
+	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
 
-	return &config, nil
-}
-
-func NewRPCGatewayFromConfigString(configString string) (*RPCGatewayConfig, error) {
-	return NewRPCGatewayFromConfigBytes([]byte(configString))
+	return NewRPCGateway(config)
 }

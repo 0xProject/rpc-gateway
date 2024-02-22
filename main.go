@@ -28,12 +28,7 @@ func main() {
 			},
 		},
 		Action: func(cc *cli.Context) error {
-			config, err := rpcgateway.NewRPCGatewayFromConfigFile(cc.String("config"))
-			if err != nil {
-				return err
-			}
-
-			service, err := rpcgateway.NewRPCGateway(*config)
+			service, err := rpcgateway.NewRPCGatewayFromConfigFile(cc.String("config"))
 			if err != nil {
 				return errors.Wrap(err, "rpc-gateway failed")
 			}

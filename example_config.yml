@@ -1,3 +1,5 @@
+---
+
 metrics:
   port: 9090 # port for prometheus metrics, served on /metrics and /
 

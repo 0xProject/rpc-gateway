@@ -27,11 +27,6 @@ RPC Gateway-->>Alice: {"result":[...]}
 
 ## Development
 
-Start dependent services
-```console
-docker-compose up
-```
-
 Make sure the test pass
 ```console
 go test -v ./...
