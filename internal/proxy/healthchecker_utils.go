@@ -53,7 +53,7 @@ func performGasLeftCall(c context.Context, client *http.Client, url string) (uin
 		return 0, errors.Wrap(err, "new request failed")
 	}
 
-	r.Header.Add(headers.ContentEncoding, "application/json")
+	r.Header.Add(headers.ContentType, "application/json")
 	r.Header.Set(headers.UserAgent, userAgent)
 
 	resp, err := client.Do(r)
