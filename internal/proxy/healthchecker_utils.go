@@ -63,7 +63,7 @@ func performGasLeftCall(c context.Context, client *http.Client, url string) (uin
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, errors.Wrap(err, "gas left check failed")
+		return 0, errors.New("gas left check failed")
 	}
 
 	result := &JSONRPCResponse{}
