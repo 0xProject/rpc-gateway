@@ -2,10 +2,12 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -83,7 +85,7 @@ func NewHealthCheckManager(config HealthCheckManagerConfig) (*HealthCheckManager
 }
 
 func (h *HealthCheckManager) runLoop(c context.Context) error {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
 
 	for {
@@ -129,12 +131,14 @@ func (h *HealthCheckManager) Start(c context.Context) error {
 }
 
 func (h *HealthCheckManager) Stop(c context.Context) error {
+	var errs error
+
 	for _, hc := range h.hcs {
 		err := hc.Stop(c)
 		if err != nil {
-			h.logger.Error("could not stop health check manager", "error", err)
+			errs = multierror.Append(errs, fmt.Errorf("healthcheckManager.Stop error: %w", err))
 		}
 	}
 
-	return nil
+	return errs
 }
