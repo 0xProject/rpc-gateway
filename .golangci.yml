@@ -81,6 +81,7 @@ linters-settings:
           - github.com/go-chi/httplog/v2
           - github.com/go-chi/chi/v5
           - github.com/urfave/cli/v2
+          - github.com/hashicorp/go-multierror
 
 issues:
   max-same-issues: 0 # unlimited
