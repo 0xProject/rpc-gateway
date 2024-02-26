@@ -3,7 +3,6 @@ module github.com/0xProject/rpc-gateway
 go 1.21
 
 require (
-	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/caitlinelfring/go-env-default v1.1.0
 	github.com/carlmjohnson/flowmatic v0.23.4
 	github.com/ethereum/go-ethereum v1.13.12
@@ -13,7 +12,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.18.0
 	github.com/stretchr/testify v1.8.4
-	github.com/urfave/cli/v2 v2.25.7
+	github.com/urfave/cli/v2 v2.27.1
 	gopkg.in/yaml.v2 v2.4.0
 )
 
