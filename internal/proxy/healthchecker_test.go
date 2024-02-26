@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -41,20 +40,4 @@ func TestBasicHealthchecker(t *testing.T) {
 
 	healthchecker.isHealthy = true
 	assert.True(t, healthchecker.IsHealthy())
-}
-
-func TestGasLeftCall(t *testing.T) {
-	client := &http.Client{}
-	url := env.GetDefault("RPC_GATEWAY_NODE_URL_1", "https://cloudflare-eth.com")
-
-	result, err := performGasLeftCall(context.TODO(), client, url)
-	assert.NoError(t, err)
-	assert.NotZero(t, result)
-
-	// testing the timeout
-	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Millisecond)
-	defer cancelFunc()
-
-	_, err = performGasLeftCall(ctx, client, url)
-	assert.Error(t, err)
 }

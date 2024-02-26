@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,7 +26,7 @@ func hexToUint(hexString string) (uint64, error) {
 }
 
 func performGasLeftCall(c context.Context, client *http.Client, url string) (uint64, error) {
-	var gasLeftCallRaw = []byte(`
+	var gasLeftCallRaw = bytes.NewBufferString(`
 {
     "method": "eth_call",
     "params": [
@@ -48,9 +49,9 @@ func performGasLeftCall(c context.Context, client *http.Client, url string) (uin
 }
 `)
 
-	r, err := http.NewRequestWithContext(c, http.MethodPost, url, bytes.NewBuffer(gasLeftCallRaw))
+	r, err := http.NewRequestWithContext(c, http.MethodPost, url, gasLeftCallRaw)
 	if err != nil {
-		return 0, errors.Wrap(err, "new request failed")
+		return 0, fmt.Errorf("performGasLeftCall: NewRequestWithContext error: %w", err)
 	}
 
 	r.Header.Add(headers.ContentType, "application/json")
@@ -58,18 +59,18 @@ func performGasLeftCall(c context.Context, client *http.Client, url string) (uin
 
 	resp, err := client.Do(r)
 	if err != nil {
-		return 0, errors.Wrap(err, "request failed")
+		return 0, fmt.Errorf("performGasLeftCall: client.Do error: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, errors.New("gas left check failed")
+		return 0, errors.New("performGasLeftCall: non-200 HTTP response")
 	}
 
 	result := &JSONRPCResponse{}
 	err = json.NewDecoder(resp.Body).Decode(result)
 	if err != nil {
-		return 0, errors.Wrap(err, "json response decode failed")
+		return 0, fmt.Errorf("performGasLeftCall: json.Decode error: %w", err)
 	}
 
 	return hexToUint(result.Result)
