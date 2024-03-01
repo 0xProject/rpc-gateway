@@ -52,7 +52,7 @@ jobs:
         with:
           go-version: ${{ env.GOLANGVERSION }}
       - uses: actions/checkout@v4
-      - uses: golangci/golangci-lint-action@v3
+      - uses: golangci/golangci-lint-action@v4
         with:
           version: latest
           args: --verbose --config .golangci.yml
