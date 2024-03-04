@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/caitlinelfring/go-env-default v1.1.0
 	github.com/carlmjohnson/flowmatic v0.23.4
-	github.com/ethereum/go-ethereum v1.13.13
+	github.com/ethereum/go-ethereum v1.13.14
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/httplog/v2 v2.0.9
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
