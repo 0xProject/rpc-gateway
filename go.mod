@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/caitlinelfring/go-env-default v1.1.0
 	github.com/carlmjohnson/flowmatic v0.23.4
-	github.com/ethereum/go-ethereum v1.13.13
+	github.com/ethereum/go-ethereum v1.14.3
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/httplog/v2 v2.0.9
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
@@ -39,12 +39,12 @@ require (
 	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/crypto v0.19.0 // indirect
-	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
-	golang.org/x/mod v0.15.0 // indirect
-	golang.org/x/net v0.21.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
-	golang.org/x/tools v0.18.0 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	golang.org/x/crypto v0.22.0 // indirect
+	golang.org/x/mod v0.17.0 // indirect
+	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
+	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/tools v0.20.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
