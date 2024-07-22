@@ -1,6 +1,5 @@
 > [!CAUTION]
-> The rpc-gateway is in development mode, and you should not consider it
-> stable yet.
+> The repository has been marked as read-only, and no further updates or maintenance will be provided.
 
 ## RPC Gateway
 
